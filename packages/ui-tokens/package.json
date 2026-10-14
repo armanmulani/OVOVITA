@@ -1,0 +1,14 @@
+{
+  "name": "@ovovita/ui-tokens",
+  "version": "1.0.0",
+  "description": "Design system tokens and Tailwind preset for Ovovita Farm-to-Table",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
