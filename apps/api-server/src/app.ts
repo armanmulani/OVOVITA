@@ -5,6 +5,8 @@ import productRoutes from './routes/productRoutes';
 import orderRoutes from './routes/orderRoutes';
 import depotRoutes from './routes/depotRoutes';
 import webhookRoutes from './routes/webhookRoutes';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './docs/swaggerSpec';
 
 export const createApp = () => {
   const app = express();
@@ -13,6 +15,9 @@ export const createApp = () => {
   app.use(cors());
   app.use(express.json());
 
+  // Interactive OpenAPI / Swagger Documentation
+  app.use('/api/v1/docs', ...(swaggerUi.serve as any), swaggerUi.setup(swaggerSpec) as any);
+
   // Health check
   app.get('/health', (req: Request, res: Response) => {
     res.json({
@@ -20,6 +25,7 @@ export const createApp = () => {
       service: 'ovovita-api-server',
       version: '1.1.0',
       timestamp: new Date().toISOString(),
+      docs: '/api/v1/docs',
     });
   });
 

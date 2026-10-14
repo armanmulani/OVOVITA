@@ -1,0 +1,67 @@
+name: Ovovita CI Pipeline
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  test-and-build:
+    name: Build & Verify Ecosystem
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+
+    strategy:
+      matrix:
+        node-version: [ 20.x, 22.x ]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Compile all workspaces
+        run: npm run build
+
+      - name: Seed demo data
+        run: npm run seed
+        env:
+          MONGODB_URI: mongodb://localhost:27017/ovovita
+
+      - name: Run Core Verification Tests
+        run: npm run test:core
+
+      - name: Run Concurrency ACID Race-Condition Tests
+        run: npm run test:concurrency
+        env:
+          MONGODB_URI: mongodb://localhost:27017/ovovita
+
+      - name: Run Meta WhatsApp Cloud API Webhook Tests
+        run: npm run test:webhook
+        env:
+          MONGODB_URI: mongodb://localhost:27017/ovovita
+
+      - name: Start API Server for E2E
+        run: |
+          npm --workspace=apps/api-server run start &
+          sleep 3
+        env:
+          MONGODB_URI: mongodb://localhost:27017/ovovita
+          PORT: 4000
+
+      - name: Run Complete E2E Lifecycle Journey Test
+        run: npm run test:e2e

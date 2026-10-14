@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: ovovita-mongodb-prod
+    restart: always
+    environment:
+      MONGO_INITDB_DATABASE: ovovita
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    volumes:
+      - mongo_prod_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'127.0.0.1:27017'}]}).ok }"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: ovovita-redis-prod
+    restart: always
+    volumes:
+      - redis_prod_data:/data
+
+  api-server:
+    build:
+      context: .
+      dockerfile: apps/api-server/Dockerfile
+    container_name: ovovita-api-prod
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      MONGODB_URI: mongodb://mongodb:27017/ovovita?replicaSet=rs0
+      JWT_SECRET: ${JWT_SECRET:-ovovita_production_jwt_secret_2026}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "4000:4000"
+
+  admin-portal:
+    build:
+      context: .
+      dockerfile: apps/admin-portal/Dockerfile
+    container_name: ovovita-admin-prod
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - api-server
+
+volumes:
+  mongo_prod_data:
+  redis_prod_data:
