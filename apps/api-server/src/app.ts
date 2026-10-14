@@ -4,6 +4,7 @@ import authRoutes from './routes/authRoutes';
 import productRoutes from './routes/productRoutes';
 import orderRoutes from './routes/orderRoutes';
 import depotRoutes from './routes/depotRoutes';
+import webhookRoutes from './routes/webhookRoutes';
 
 export const createApp = () => {
   const app = express();
@@ -27,6 +28,7 @@ export const createApp = () => {
   app.use('/api/v1/products', productRoutes);
   app.use('/api/v1/orders', orderRoutes);
   app.use('/api/v1/depots', depotRoutes);
+  app.use('/api/v1/webhooks', webhookRoutes);
 
   // 404 Handler
   app.use((req: Request, res: Response) => {

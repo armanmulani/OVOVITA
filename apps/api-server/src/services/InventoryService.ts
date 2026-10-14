@@ -14,19 +14,26 @@ export class InventoryService {
     let session: mongoose.ClientSession | null = null;
     let useTransaction = false;
 
-    try {
-      session = await mongoose.startSession();
-      // Check if MongoDB deployment supports transactions (replica set)
-      session.startTransaction();
-      useTransaction = true;
-    } catch {
-      // Standalone MongoDB (e.g. standard local dev); proceed with atomic conditional update
-      useTransaction = false;
+    const client = (mongoose.connection as any).client;
+    const isReplicaSet = Boolean(
+      client?.options?.replicaSet ||
+      client?.topology?.description?.setName
+    );
+
+    if (isReplicaSet) {
+      try {
+        session = await mongoose.startSession();
+        session.startTransaction();
+        useTransaction = true;
+      } catch {
+        useTransaction = false;
+        session = null;
+      }
     }
 
-    try {
-      const decrementedItems: Array<{ productId: string; qty: number }> = [];
+    const decrementedItems: Array<{ productId: string; qty: number }> = [];
 
+    try {
       for (const item of items) {
         // Atomic conditional decrement: currentStock >= totalEggsCount
         const query = {
@@ -57,7 +64,11 @@ export class InventoryService {
           !updatedProduct.isLowStockAlertSent
         ) {
           updatedProduct.isLowStockAlertSent = true;
-          await updatedProduct.save({ session: session || undefined });
+          if (useTransaction && session) {
+            await updatedProduct.save({ session });
+          } else {
+            await updatedProduct.save();
+          }
           NotificationService.sendLowStockAlert({
             name: updatedProduct.name,
             currentStock: updatedProduct.currentStock,
@@ -75,6 +86,11 @@ export class InventoryService {
     } catch (error) {
       if (useTransaction && session) {
         await session.abortTransaction();
+      } else {
+        // Standalone compensation rollback for any partially decremented items in this order
+        for (const dec of decrementedItems) {
+          await Product.findByIdAndUpdate(dec.productId, { $inc: { currentStock: dec.qty } });
+        }
       }
       throw error;
     } finally {

@@ -9,10 +9,15 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
+    "start": "concurrently -n \"API,ADMIN,MOBILE\" -c \"blue,green,magenta\" \"npm --workspace=apps/api-server run start\" \"npm --workspace=apps/admin-portal run preview -- --port 5173 --host\" \"npm --workspace=apps/mobile run preview -- --port 5174 --host\"",
     "dev:api": "npm --workspace=apps/api-server run dev",
     "dev:admin": "npm --workspace=apps/admin-portal run dev",
-    "dev:mobile": "npm --workspace=apps/mobile run start",
-    "test": "npm run test --workspaces --if-present"
+    "dev:mobile": "npm --workspace=apps/mobile run dev",
+    "seed": "npx ts-node apps/api-server/src/seed.ts",
+    "test:core": "npx ts-node apps/api-server/src/__tests__/test_core.ts",
+    "test:concurrency": "npx ts-node apps/api-server/src/__tests__/test_concurrency.ts",
+    "test:webhook": "npx ts-node apps/api-server/src/__tests__/test_webhook.ts",
+    "test:all": "npm run test:core && npm run test:concurrency && npm run test:webhook"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
@@ -20,6 +25,7 @@
     "@vitejs/plugin-react": "^6.1.2",
     "autoprefixer": "^10.6.1",
     "clsx": "^2.1.1",
+    "concurrently": "^10.0.6",
     "lucide-react": "^1.57.0",
     "postcss": "^8.5.30",
     "react": "^19.3.0",
