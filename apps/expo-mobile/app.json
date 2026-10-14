@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Ovovita Farm-to-Table",
+    "slug": "ovovita",
+    "version": "1.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#FFFDF7",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.ovovita.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Ovovita requires camera access to scan delivery partner UPI QR codes and inspect packaging.",
+        "NSLocationWhenInUseUsageDescription": "Ovovita requires location access to determine the nearest servicing depot hub."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFDF7"
+      },
+      "package": "com.ovovita.app",
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "primaryColor": "#D97706"
+  }
+}

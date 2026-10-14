@@ -13,6 +13,7 @@
     "dev:api": "npm --workspace=apps/api-server run dev",
     "dev:admin": "npm --workspace=apps/admin-portal run dev",
     "dev:mobile": "npm --workspace=apps/mobile run dev",
+    "dev:expo": "npm --workspace=apps/expo-mobile run start",
     "seed": "npx ts-node apps/api-server/src/seed.ts",
     "test:core": "npx ts-node apps/api-server/src/__tests__/test_core.ts",
     "test:concurrency": "npx ts-node apps/api-server/src/__tests__/test_concurrency.ts",
