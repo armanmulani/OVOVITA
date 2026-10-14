@@ -17,7 +17,8 @@
     "test:core": "npx ts-node apps/api-server/src/__tests__/test_core.ts",
     "test:concurrency": "npx ts-node apps/api-server/src/__tests__/test_concurrency.ts",
     "test:webhook": "npx ts-node apps/api-server/src/__tests__/test_webhook.ts",
-    "test:all": "npm run test:core && npm run test:concurrency && npm run test:webhook"
+    "test:e2e": "npx ts-node apps/api-server/src/__tests__/test_e2e_journey.ts",
+    "test:all": "npm run test:core && npm run test:concurrency && npm run test:webhook && npm run test:e2e"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
