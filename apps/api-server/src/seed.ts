@@ -19,18 +19,50 @@ export const seedDatabase = async () => {
       Order.deleteMany({}),
     ]);
 
-    // 1. Create Koramangala Central Depot
-    console.log('[Seed] Creating Koramangala Central Depot...');
+    // 1. Create Distribution Depots across Bengaluru Hubs
+    console.log('[Seed] Creating Bengaluru Multi-Depot Distribution Hubs...');
     const depot = await Depot.create({
-      code: 'KOR-DEPOT-01',
+      code: 'DEPOT-BLR-KOR',
       name: 'Depot Hub • Koramangala',
       contactPerson: 'Amit Patel',
       contactPhone: '+91 98765 00001',
       address: 'Plot 18, 5th Block Industrial Area, Koramangala, Bengaluru - 560034',
-      servicedPincodes: ['560034', '560095', '560068', '560038', '560076', '560102'],
+      servicedPincodes: ['560034', '560095', '560068', '560047', '560030'],
       location: {
         type: 'Point',
         coordinates: [77.6245, 12.9352], // Koramangala
+      },
+      isActive: true,
+      openingTime: '05:30',
+      closingTime: '21:00',
+    });
+
+    const indiranagarDepot = await Depot.create({
+      code: 'DEPOT-BLR-IND',
+      name: 'Depot Hub • Indiranagar',
+      contactPerson: 'Suresh Rao',
+      contactPhone: '+91 98765 00011',
+      address: '100ft Road, Defence Colony, Indiranagar, Bengaluru - 560038',
+      servicedPincodes: ['560038', '560008', '560075', '560071'],
+      location: {
+        type: 'Point',
+        coordinates: [77.6412, 12.9719],
+      },
+      isActive: true,
+      openingTime: '05:30',
+      closingTime: '21:00',
+    });
+
+    const whitefieldDepot = await Depot.create({
+      code: 'DEPOT-BLR-WTF',
+      name: 'Depot Hub • Whitefield',
+      contactPerson: 'Vikram Singh',
+      contactPhone: '+91 98765 00021',
+      address: 'ITPB Main Road, Whitefield Tech Corridor, Bengaluru - 560066',
+      servicedPincodes: ['560066', '560067', '560048'],
+      location: {
+        type: 'Point',
+        coordinates: [77.7500, 12.9698],
       },
       isActive: true,
       openingTime: '05:30',
@@ -89,6 +121,38 @@ export const seedDatabase = async () => {
         'https://lh3.googleusercontent.com/aida-public/AB6AXuCiVJHmHFBcwwdaSPnHs7D2D75fr_Ag_QVY7qTEbLWl257zlvb1-RWr65s79p2A8wb_o4jG_3zd0pWY7Q1BKNF3z-3rVMfJB2T4-ID2tZDP-oYYhhPJYiz5aOnslx1HNaj_3zebTrlxz24TVcAWBDrFvQSoqTKuOjQYQ49UHho-09wY2-vqiU1zqxspoqWFOZQYDwlturhGc0b5vcavMOUeZHZYgxMp1qsXjeqiRdqejas-j1MQx_RWQQ',
     });
 
+    // Indiranagar Staff
+    await User.create({
+      name: 'Suresh Rao',
+      phoneNumber: '9876500011',
+      role: 'SHOPKEEPER',
+      pinHash: defaultPinHash,
+      depotId: indiranagarDepot._id,
+    });
+    await User.create({
+      name: 'Manoj Kumar',
+      phoneNumber: '9876500012',
+      role: 'DELIVERY_EXECUTIVE',
+      pinHash: defaultPinHash,
+      depotId: indiranagarDepot._id,
+    });
+
+    // Whitefield Staff
+    await User.create({
+      name: 'Vikram Singh',
+      phoneNumber: '9876500021',
+      role: 'SHOPKEEPER',
+      pinHash: defaultPinHash,
+      depotId: whitefieldDepot._id,
+    });
+    await User.create({
+      name: 'Anand Gowda',
+      phoneNumber: '9876500022',
+      role: 'DELIVERY_EXECUTIVE',
+      pinHash: defaultPinHash,
+      depotId: whitefieldDepot._id,
+    });
+
     // System Admin
     await User.create({
       name: 'Ovovita Core Admin',
@@ -142,7 +206,7 @@ export const seedDatabase = async () => {
       name: 'Farm Brown Heritage Eggs',
       type: 'BROWN',
       description: 'Thick-shelled brown eggs with dense whites, ideal for poaching and high-heat morning baking.',
-      heroImageUrl: 'https://images.unsplash.com/photo-1516467508483-a7212febe31a?auto=format&fit=crop&w=600&q=80',
+      heroImageUrl: 'https://images.unsplash.com/photo-1587486913049-53fc88980cfc?auto=format&fit=crop&w=600&q=80',
       farmOriginName: 'Hosur Valley Poultry Estate',
       laidTimestampText: 'Laid sunrise today',
       isCandlingPassed: true,

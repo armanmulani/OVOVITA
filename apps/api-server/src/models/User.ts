@@ -34,6 +34,7 @@ export interface IUserDoc extends Document {
 }
 
 const AddressSubSchema = new Schema<IUserAddressDoc>({
+  id: { type: String },
   tag: { type: String, enum: ['HOME', 'WORK', 'OTHER'], default: 'HOME' },
   recipientName: { type: String, required: true },
   phoneNumber: { type: String, required: true },

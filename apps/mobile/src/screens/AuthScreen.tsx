@@ -72,12 +72,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
 
       <div className="bg-surface-container-lowest p-5 rounded-2xl border border-surface-container shadow-md">
         {/* Role Tab */}
-        <div className="grid grid-cols-2 gap-1.5 p-1 bg-surface-container rounded-xl mb-4">
+        <div className="grid grid-cols-2 gap-1.5 p-1 bg-surface-container rounded-xl mb-3">
           <button
             type="button"
             onClick={() => {
               setRole('customer');
               setPhone('9876543210');
+              setOtpSent(false);
+              setErrorMsg('');
             }}
             className={`py-2 text-xs font-bold rounded-lg transition ${
               role === 'customer'
@@ -92,6 +94,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
             onClick={() => {
               setRole('staff');
               setPhone('9876500002');
+              setOtpSent(false);
+              setErrorMsg('');
             }}
             className={`py-2 text-xs font-bold rounded-lg transition ${
               role === 'staff'
@@ -101,6 +105,91 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
           >
             Delivery Driver
           </button>
+        </div>
+
+        {/* Quick Select Account Chips */}
+        <div className="mb-4">
+          <div className="text-[10px] uppercase font-bold text-on-surface-variant tracking-wider mb-1.5">
+            Quick Select Account
+          </div>
+          {role === 'customer' ? (
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setPhone('9876543210');
+                  setOtpSent(false);
+                  setErrorMsg('');
+                }}
+                className={`text-[11px] px-2.5 py-1 rounded-lg border font-semibold transition ${
+                  phone === '9876543210'
+                    ? 'bg-primary/10 border-primary text-primary font-bold'
+                    : 'bg-surface border-surface-container text-on-surface-variant hover:bg-surface-container-high'
+                }`}
+              >
+                👤 Rahul Sharma
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPhone('9811223344');
+                  setOtpSent(false);
+                  setErrorMsg('');
+                }}
+                className={`text-[11px] px-2.5 py-1 rounded-lg border font-semibold transition ${
+                  phone === '9811223344'
+                    ? 'bg-primary/10 border-primary text-primary font-bold'
+                    : 'bg-surface border-surface-container text-on-surface-variant hover:bg-surface-container-high'
+                }`}
+              >
+                ✨ New Customer
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPhone('');
+                  setOtpSent(false);
+                  setErrorMsg('');
+                }}
+                className="text-[11px] px-2 py-1 rounded-lg border border-surface-container text-outline hover:bg-surface-container-high transition"
+              >
+                Custom #
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setPhone('9876500002');
+                  setPin('1234');
+                  setErrorMsg('');
+                }}
+                className={`text-[11px] px-2.5 py-1 rounded-lg border font-semibold transition ${
+                  phone === '9876500002'
+                    ? 'bg-secondary/10 border-secondary text-secondary font-bold'
+                    : 'bg-surface border-surface-container text-on-surface-variant hover:bg-surface-container-high'
+                }`}
+              >
+                🛵 Ramesh (Koramangala)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPhone('9876500003');
+                  setPin('1234');
+                  setErrorMsg('');
+                }}
+                className={`text-[11px] px-2.5 py-1 rounded-lg border font-semibold transition ${
+                  phone === '9876500003'
+                    ? 'bg-secondary/10 border-secondary text-secondary font-bold'
+                    : 'bg-surface border-surface-container text-on-surface-variant hover:bg-surface-container-high'
+                }`}
+              >
+                🛵 Suresh (Indiranagar)
+              </button>
+            </div>
+          )}
         </div>
 
         {errorMsg && (
@@ -122,11 +211,15 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                   <input
                     type="tel"
                     required
+                    placeholder="Enter 10-digit number"
                     maxLength={10}
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="w-full text-sm font-bold pl-12 pr-3 py-2 bg-surface border border-outline-variant/40 rounded-xl text-on-surface focus:outline-none focus:border-primary"
                   />
+                </div>
+                <div className="text-[11px] text-on-surface-variant mt-1">
+                  Any number works! Test OTP is pre-configured as <strong className="text-primary">123456</strong>.
                 </div>
               </div>
 

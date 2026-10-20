@@ -244,6 +244,25 @@ export const swaggerSpec = {
         responses: { 200: { description: 'Order marked delivered and paid' } },
       },
     },
+    '/depots': {
+      get: {
+        summary: 'List All Distribution Depot Hubs',
+        tags: ['Depot Operations'],
+        responses: { 200: { description: 'Array of active distribution hubs' } },
+      },
+    },
+    '/depots/coverage': {
+      get: {
+        summary: 'Check Delivery Coverage and Real-Time ETA by Pincode or GPS Coordinates',
+        tags: ['Depot Operations'],
+        parameters: [
+          { name: 'pincode', in: 'query', schema: { type: 'string', example: '560034' } },
+          { name: 'lng', in: 'query', schema: { type: 'number', example: 77.6255 } },
+          { name: 'lat', in: 'query', schema: { type: 'number', example: 12.9342 } },
+        ],
+        responses: { 200: { description: 'Coverage status, assigned hub, and dynamic ETA' } },
+      },
+    },
     '/depots/dashboard': {
       get: {
         summary: 'Depot Hub Dashboard (Packing Queue, Fleet, KPIs)',

@@ -6,6 +6,10 @@ import { authenticateJwt, requireRole } from '../middleware/authMiddleware';
 
 const router = Router();
 
+// Public / Client Depot discovery & coverage check
+router.get('/', DepotController.getAllDepots);
+router.get('/coverage', DepotController.checkCoverage);
+
 // Depot hub management
 router.get(
   '/dashboard',

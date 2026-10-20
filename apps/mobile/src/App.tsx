@@ -19,22 +19,19 @@ export const App: React.FC = () => {
   >([]);
   const [placedOrderId, setPlacedOrderId] = useState<string | undefined>(undefined);
 
-  // Initialize demo customer authentication
+  // Initialize customer authentication if token already saved
   useEffect(() => {
     const initCustomer = async () => {
       try {
-        if (!token) {
-          // Pre-authenticate as default demo customer Rahul Sharma
-          const verifyRes = await mobileApi.verifyOtp('9876543210', '123456');
-          mobileApi.setToken(verifyRes.data.token);
-          setToken(verifyRes.data.token);
-          setUser(verifyRes.data.user);
-        } else {
+        if (token) {
           const profileRes = await mobileApi.getProfile();
           setUser(profileRes.data);
         }
       } catch (err) {
-        console.warn('Mobile auth note:', err);
+        console.warn('Mobile auth session expired or invalid:', err);
+        mobileApi.clearToken();
+        setToken(null);
+        setUser(null);
       }
     };
 
@@ -86,17 +83,40 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleUpdateUser = (updatedUser: any) => {
+    setUser(updatedUser);
+  };
+
   const handleLogout = () => {
     mobileApi.clearToken();
     setToken(null);
     setUser(null);
+    setActiveTab('catalog');
   };
 
-  if (!token && !user) {
+  if (!token || !user) {
     return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
   }
 
   const cartTotalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  const handleReorder = (items: any[]) => {
+    const reordered: any[] = [];
+    for (const it of items) {
+      const matched = products.find((p) => p._id === it.productId);
+      if (matched) {
+        reordered.push({
+          product: matched,
+          unit: it.unit,
+          quantity: it.quantity,
+        });
+      }
+    }
+    if (reordered.length > 0) {
+      setCart(reordered);
+      setActiveTab('cart');
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col justify-between overflow-y-auto">
@@ -113,6 +133,8 @@ export const App: React.FC = () => {
         {activeTab === 'cart' && (
           <CheckoutScreen
             cart={cart}
+            user={user}
+            onUpdateUser={handleUpdateUser}
             onPlaceOrder={handlePlaceOrder}
             onBack={() => setActiveTab('catalog')}
             onClearCart={() => setCart([])}
@@ -128,7 +150,14 @@ export const App: React.FC = () => {
 
         {activeTab === 'driver' && <DriverModeScreen />}
 
-        {activeTab === 'profile' && <ProfileScreen onLogout={handleLogout} />}
+        {activeTab === 'profile' && (
+          <ProfileScreen
+            user={user}
+            onUpdateUser={handleUpdateUser}
+            onLogout={handleLogout}
+            onReorder={handleReorder}
+          />
+        )}
       </div>
 
       <BottomNav

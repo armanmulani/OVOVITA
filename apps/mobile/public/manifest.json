@@ -1,0 +1,22 @@
+{
+  "short_name": "Ovovita",
+  "name": "Ovovita • Farm-Direct Fresh Eggs",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#111827",
+  "theme_color": "#B93815",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/"
+}

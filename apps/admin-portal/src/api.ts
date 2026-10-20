@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:4000/api/v1';
+const API_BASE = ((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:4000/api/v1';
 
 export const api = {
   getAuthToken: () => localStorage.getItem('ovovita_token'),
@@ -57,7 +57,9 @@ export const api = {
     }),
 
   // Depot
-  getDepotDashboard: () => api.request('/depots/dashboard'),
+  getDepots: () => api.request('/depots'),
+  getDepotDashboard: (depotId?: string) =>
+    api.request(`/depots/dashboard${depotId ? `?depotId=${depotId}` : ''}`),
   assignRider: (orderId: string, driverId: string, vehiclePlateNumber?: string) =>
     api.request('/depots/assign-rider', {
       method: 'POST',

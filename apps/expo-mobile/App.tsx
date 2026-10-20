@@ -73,7 +73,32 @@ export default function App() {
               </TouchableOpacity>
             </View>
 
-            {/* Product Card 2 */}
+            {/* Product Card 2 - Brown Eggs */}
+            <View style={styles.card}>
+              <View style={styles.cardTop}>
+                <View>
+                  <Text style={[styles.productBadge, { color: '#9A3412', backgroundColor: '#FFEDD5' }]}>THICK SHELL • DENSE WHITE</Text>
+                  <Text style={styles.productTitle}>Farm Brown Heritage Eggs</Text>
+                  <Text style={styles.farmOrigin}>Hosur Valley Poultry Estate</Text>
+                </View>
+                <Text style={styles.priceHighlight}>₹235</Text>
+              </View>
+              <View style={styles.unitRow}>
+                <View style={[styles.unitChip, styles.unitChipActive]}>
+                  <Text style={styles.unitChipTextActive}>30-Egg Farm Tray</Text>
+                  <Text style={styles.unitPriceTextActive}>₹235 (Save 8%)</Text>
+                </View>
+                <View style={styles.unitChip}>
+                  <Text style={styles.unitChipText}>12-Egg Dozen</Text>
+                  <Text style={styles.unitPriceText}>₹96</Text>
+                </View>
+              </View>
+              <TouchableOpacity style={styles.actionBtn}>
+                <Text style={styles.actionBtnText}>Add 30-Egg Tray • ₹235</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Product Card 3 - Free-Range Desi Eggs */}
             <View style={styles.card}>
               <View style={styles.cardTop}>
                 <View>
@@ -95,6 +120,31 @@ export default function App() {
               </View>
               <TouchableOpacity style={styles.actionBtn}>
                 <Text style={styles.actionBtnText}>Add 30-Egg Tray • ₹330</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Product Card 4 - Organic Omega-3 */}
+            <View style={styles.card}>
+              <View style={styles.cardTop}>
+                <View>
+                  <Text style={[styles.productBadge, { color: '#047857', backgroundColor: '#D1FAE5' }]}>DHA RICH • FLAXSEED DIET</Text>
+                  <Text style={styles.productTitle}>Organic Omega-3 Enriched Eggs</Text>
+                  <Text style={styles.farmOrigin}>Kolar Organic Farms</Text>
+                </View>
+                <Text style={styles.priceHighlight}>₹390</Text>
+              </View>
+              <View style={styles.unitRow}>
+                <View style={[styles.unitChip, styles.unitChipActive]}>
+                  <Text style={styles.unitChipTextActive}>30-Egg Farm Tray</Text>
+                  <Text style={styles.unitPriceTextActive}>₹390 (Save 7%)</Text>
+                </View>
+                <View style={styles.unitChip}>
+                  <Text style={styles.unitChipText}>12-Egg Dozen</Text>
+                  <Text style={styles.unitPriceText}>₹160</Text>
+                </View>
+              </View>
+              <TouchableOpacity style={styles.actionBtn}>
+                <Text style={styles.actionBtnText}>Add 30-Egg Tray • ₹390</Text>
               </TouchableOpacity>
             </View>
           </View>

@@ -30,8 +30,12 @@ export class OrderController {
       });
     }
 
-    // 1. Resolve servicing depot by delivery pincode
-    const depot = await RoutingService.resolveDepotByPincode(deliveryAddress.pincode);
+    // 1. Resolve servicing depot by delivery coordinates or pincode
+    const { depot, distanceKm, estimatedMinutes } = await RoutingService.resolveDepot({
+      pincode: deliveryAddress.pincode,
+      longitude: deliveryAddress.longitude,
+      latitude: deliveryAddress.latitude,
+    });
 
     // 2. Compute prices and frozen snapshots
     const bill = await PricingService.computeOrderBill(items);
@@ -58,6 +62,7 @@ export class OrderController {
       customerName: deliveryAddress.recipientName || customer.name,
       customerPhone: deliveryAddress.phoneNumber || customer.phoneNumber,
       depotId: depot._id,
+      estimatedDeliveryTime: `${estimatedMinutes} mins`,
       items: bill.items,
       subtotal: bill.subtotal,
       deliveryCharge: bill.deliveryCharge,

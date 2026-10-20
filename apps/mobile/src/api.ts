@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:4000/api/v1';
+const API_BASE = ((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:4000/api/v1';
 
 export const mobileApi = {
   getToken: () => localStorage.getItem('ovovita_mobile_token'),
@@ -49,6 +49,24 @@ export const mobileApi = {
 
   getProfile: () => mobileApi.request('/auth/profile'),
 
+  // Addresses
+  addAddress: (addressData: any) =>
+    mobileApi.request('/auth/addresses', {
+      method: 'POST',
+      body: JSON.stringify(addressData),
+    }),
+
+  updateAddress: (addressId: string, addressData: any) =>
+    mobileApi.request(`/auth/addresses/${addressId}`, {
+      method: 'PUT',
+      body: JSON.stringify(addressData),
+    }),
+
+  deleteAddress: (addressId: string) =>
+    mobileApi.request(`/auth/addresses/${addressId}`, {
+      method: 'DELETE',
+    }),
+
   // Catalog
   getCatalog: (type?: string) =>
     mobileApi.request(`/products${type && type !== 'ALL' ? `?type=${type}` : ''}`),
@@ -91,4 +109,11 @@ export const mobileApi = {
 
   // Driver Run Sheet
   getDriverRunSheet: () => mobileApi.request('/depots/driver/run-sheet'),
+
+  // Depots & Coverage
+  getDepots: () => mobileApi.request('/depots'),
+  checkCoverage: (pincode: string, lng?: number, lat?: number) =>
+    mobileApi.request(
+      `/depots/coverage?pincode=${pincode}${lng ? `&lng=${lng}` : ''}${lat ? `&lat=${lat}` : ''}`
+    ),
 };

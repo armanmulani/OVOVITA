@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { mobileApi } from '../api';
+import { offlineSync } from '../services/offlineSync';
 
 export const DriverModeScreen: React.FC = () => {
   const [runs, setRuns] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState<boolean>(offlineSync.isOnline());
+  const [pendingQueueCount, setPendingQueueCount] = useState<number>(offlineSync.getQueue().length);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   // Active run modals
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
@@ -12,8 +16,39 @@ export const DriverModeScreen: React.FC = () => {
   const [brokenCount, setBrokenCount] = useState<number>(1);
   const [resolutionType, setResolutionType] = useState<'BUFFER_REPLACED' | 'PRICE_DISCOUNTED'>('BUFFER_REPLACED');
 
+  const updateQueueCount = () => {
+    setPendingQueueCount(offlineSync.getQueue().length);
+  };
+
+  const handleManualSync = async () => {
+    if (!isOnline) {
+      alert('Network unavailable. You are currently in an offline zone (basement/lift). Actions are safely queued.');
+      return;
+    }
+    setIsSyncing(true);
+    try {
+      const res = await offlineSync.flushQueue();
+      updateQueueCount();
+      if (res.synced > 0) {
+        alert(`Successfully synced ${res.synced} offline delivery action(s)!`);
+        await loadRuns();
+      }
+    } catch (err: any) {
+      console.warn('Sync error:', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const loadRuns = async () => {
     setIsLoading(true);
+    if (!isOnline) {
+      const cached = offlineSync.getCachedRuns();
+      setRuns(cached);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       // Login as demo driver if not already
       const loginRes = await mobileApi.staffLogin('9876500002', '1234', 'DELIVERY_EXECUTIVE');
@@ -21,19 +56,44 @@ export const DriverModeScreen: React.FC = () => {
 
       const res = await mobileApi.getDriverRunSheet();
       setRuns(res.data);
+      offlineSync.cacheRuns(res.data);
     } catch (err) {
-      console.warn('Driver runs load error:', err);
+      console.warn('Driver runs load error, loading offline cache:', err);
+      const cached = offlineSync.getCachedRuns();
+      setRuns(cached);
     } finally {
       setIsLoading(false);
+      updateQueueCount();
     }
   };
 
   useEffect(() => {
     loadRuns();
+
+    const unsubscribe = offlineSync.subscribe(async (online) => {
+      setIsOnline(online);
+      if (online) {
+        // Automatically flush queue when regaining connection
+        await offlineSync.flushQueue();
+        updateQueueCount();
+        await loadRuns();
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const handleOpenUpiQr = async (order: any) => {
     setSelectedOrder(order);
+    if (!isOnline) {
+      // Generate offline UPI payload
+      setUpiQrData({
+        orderNumber: order.orderNumber,
+        finalPayableAmount: order.finalPayableAmount,
+        upiId: 'ovovita.depot@okhdfcbank',
+      });
+      return;
+    }
     try {
       const res = await mobileApi.getUpiQr(order._id);
       setUpiQrData(res.data);
@@ -44,13 +104,24 @@ export const DriverModeScreen: React.FC = () => {
 
   const handleAdjustBrokenEggs = async () => {
     if (!selectedOrder) return;
+    const payload = {
+      orderId: selectedOrder._id,
+      brokenEggsCount: brokenCount,
+      resolutionType,
+      note: `Doorstep inspection: ${brokenCount} damaged eggs handled via ${resolutionType}`,
+    };
+
+    if (!isOnline) {
+      offlineSync.queueAction('ADJUST_BROKEN', payload);
+      updateQueueCount();
+      alert(`Offline Mode: ${brokenCount} egg buffer swap saved locally. Will sync once out of basement!`);
+      setBrokenModalOpen(false);
+      setRuns(offlineSync.getCachedRuns());
+      return;
+    }
+
     try {
-      const res = await mobileApi.adjustBrokenEggs({
-        orderId: selectedOrder._id,
-        brokenEggsCount: brokenCount,
-        resolutionType,
-        note: `Doorstep inspection: ${brokenCount} damaged eggs handled via ${resolutionType}`,
-      });
+      const res = await mobileApi.adjustBrokenEggs(payload);
       alert(res.message);
       setBrokenModalOpen(false);
       await loadRuns();
@@ -60,14 +131,26 @@ export const DriverModeScreen: React.FC = () => {
   };
 
   const handleConfirmDelivery = async (orderId: string, method: 'CASH_ON_DELIVERY' | 'UPI_ON_DELIVERY', amount: number) => {
+    const payload = {
+      orderId,
+      paymentMethod: method,
+      amountCollected: amount,
+      inspectionPassed: true,
+      upiTransactionRef: method === 'UPI_ON_DELIVERY' ? `UPI_${Date.now()}` : undefined,
+    };
+
+    if (!isOnline) {
+      offlineSync.queueAction('COLLECT_PAYMENT', payload);
+      updateQueueCount();
+      alert('Offline Mode: POD payment recorded locally! Order marked delivered. Will sync upon reconnection.');
+      setUpiQrData(null);
+      setSelectedOrder(null);
+      setRuns(offlineSync.getCachedRuns());
+      return;
+    }
+
     try {
-      await mobileApi.collectPayment({
-        orderId,
-        paymentMethod: method,
-        amountCollected: amount,
-        inspectionPassed: true,
-        upiTransactionRef: method === 'UPI_ON_DELIVERY' ? `UPI_${Date.now()}` : undefined,
-      });
+      await mobileApi.collectPayment(payload);
       alert('Order marked delivered and payment collected!');
       setUpiQrData(null);
       setSelectedOrder(null);
@@ -86,19 +169,50 @@ export const DriverModeScreen: React.FC = () => {
             <span className="material-symbols-outlined text-[20px]">two_wheeler</span>
           </div>
           <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-secondary">Rider Run-Sheet</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-secondary">Rider Run-Sheet</span>
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isOnline ? 'bg-secondary animate-pulse' : 'bg-tertiary'
+                }`}
+                title={isOnline ? 'Online' : 'Offline / Dead Zone'}
+              />
+            </div>
             <h2 className="text-sm font-bold text-on-surface">Ramesh Kumar (KA-01-EQ-9872)</h2>
           </div>
         </div>
 
-        <button
-          onClick={loadRuns}
-          className="text-xs bg-surface-container px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1 hover:bg-surface-variant transition"
-        >
-          <span className="material-symbols-outlined text-[15px]">refresh</span>
-          <span>Refresh</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {pendingQueueCount > 0 && (
+            <button
+              onClick={handleManualSync}
+              disabled={isSyncing}
+              className="text-[11px] bg-secondary/10 border border-secondary text-secondary px-2 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 transition"
+            >
+              <span className={`material-symbols-outlined text-[13px] ${isSyncing ? 'animate-spin' : ''}`}>sync</span>
+              <span>Sync ({pendingQueueCount})</span>
+            </button>
+          )}
+
+          <button
+            onClick={loadRuns}
+            className="text-xs bg-surface-container px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1 hover:bg-surface-variant transition"
+          >
+            <span className="material-symbols-outlined text-[15px]">refresh</span>
+            <span>Refresh</span>
+          </button>
+        </div>
       </header>
+
+      {/* Offline Alert Banner */}
+      {!isOnline && (
+        <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-amber-700 dark:text-amber-400 flex items-center justify-between text-xs font-medium">
+          <div className="flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px] text-amber-600">wifi_off</span>
+            <span>Basement / Lift Mode: Offline cache active. Actions will auto-sync.</span>
+          </div>
+        </div>
+      )}
 
       {/* Driver Buffer Crate Status */}
       <div className="px-4 py-2.5 bg-primary-fixed/30 text-on-primary-fixed flex items-center justify-between text-xs font-semibold">
@@ -144,6 +258,12 @@ export const DriverModeScreen: React.FC = () => {
                       >
                         {run.status.replace(/_/g, ' ')}
                       </span>
+                      {run.offlinePendingSync && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-800 dark:text-amber-300 flex items-center gap-0.5">
+                          <span className="material-symbols-outlined text-[11px]">schedule</span>
+                          Pending Sync
+                        </span>
+                      )}
                     </div>
                     <div className="text-sm font-bold text-on-surface mt-1">{run.customerName}</div>
                     <div className="text-xs text-on-surface-variant mt-0.5">

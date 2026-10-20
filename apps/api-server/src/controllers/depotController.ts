@@ -3,10 +3,39 @@ import { Order } from '../models/Order';
 import { Product } from '../models/Product';
 import { User } from '../models/User';
 import { ShiftReconciliation } from '../models/ShiftReconciliation';
+import { Depot } from '../models/Depot';
+import { RoutingService } from '../services/RoutingService';
 import { NotificationService } from '../services/NotificationService';
 import { AuthenticatedRequest } from '../middleware/authMiddleware';
 
 export class DepotController {
+  /**
+   * List all distribution depot hubs
+   */
+  static async getAllDepots(req: Request, res: Response) {
+    const depots = await Depot.find({ isActive: true }).sort({ name: 1 });
+    return res.json({
+      success: true,
+      data: depots,
+    });
+  }
+
+  /**
+   * Check delivery coverage and ETA by pincode or coordinates
+   */
+  static async checkCoverage(req: Request, res: Response) {
+    const { pincode, lng, lat } = req.query;
+    const coverage = await RoutingService.checkCoverage({
+      pincode: pincode as string,
+      longitude: lng ? parseFloat(lng as string) : undefined,
+      latitude: lat ? parseFloat(lat as string) : undefined,
+    });
+
+    return res.json({
+      success: true,
+      data: coverage,
+    });
+  }
   /**
    * Get Depot Live Hub Metrics & Order Queues
    */

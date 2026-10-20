@@ -17,6 +17,8 @@ export const App: React.FC = () => {
   // Data states
   const [dashboard, setDashboard] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
+  const [depots, setDepots] = useState<any[]>([]);
+  const [selectedDepotId, setSelectedDepotId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -31,12 +33,18 @@ export const App: React.FC = () => {
         if (token) {
           const profile = await api.getProfile();
           setUser(profile.data);
+          if (profile.data?.depotId) {
+            setSelectedDepotId(profile.data.depotId);
+          }
         } else {
           // Pre-authenticate as default demo Shopkeeper
           const loginRes = await api.loginStaff('9876500001', '1234', 'SHOPKEEPER');
           api.setAuthToken(loginRes.data.token);
           setToken(loginRes.data.token);
           setUser(loginRes.data.user);
+          if (loginRes.data.user?.depotId) {
+            setSelectedDepotId(loginRes.data.user.depotId);
+          }
         }
       } catch (err) {
         console.warn('Auth init note:', err);
@@ -49,22 +57,35 @@ export const App: React.FC = () => {
     initAuth();
   }, []);
 
-  const loadData = async () => {
+  const loadData = async (depotIdParam?: string) => {
     setIsRefreshing(true);
+    const activeDepot = depotIdParam !== undefined ? depotIdParam : selectedDepotId;
     try {
-      const [dashRes, prodRes] = await Promise.all([
-        api.getDepotDashboard(),
+      const [dashRes, prodRes, depotsRes] = await Promise.all([
+        api.getDepotDashboard(activeDepot || undefined),
         api.getProducts(),
+        api.getDepots().catch(() => ({ data: [] })),
       ]);
 
       setDashboard(dashRes.data);
       setProducts(prodRes.data);
+      if (depotsRes.data && depotsRes.data.length > 0) {
+        setDepots(depotsRes.data);
+        if (!selectedDepotId && !activeDepot) {
+          setSelectedDepotId(depotsRes.data[0]._id);
+        }
+      }
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
+  };
+
+  const handleSelectDepot = (id: string) => {
+    setSelectedDepotId(id);
+    loadData(id);
   };
 
   useEffect(() => {
@@ -141,7 +162,10 @@ export const App: React.FC = () => {
         <HubBanner
           depotName="Depot Hub • Koramangala"
           leadName={`${user?.name || 'Amit Patel'} (Depot Lead)`}
-          onRefresh={loadData}
+          depots={depots}
+          selectedDepotId={selectedDepotId}
+          onSelectDepot={handleSelectDepot}
+          onRefresh={() => loadData()}
           isRefreshing={isRefreshing}
         />
 
