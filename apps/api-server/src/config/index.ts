@@ -44,23 +44,22 @@ loadEnv();
 const isProduction = (process.env.NODE_ENV || '').trim() === 'production';
 
 /**
- * Refuses to boot in production without a real JWT secret.
+ * Requires JWT_SECRET to be set via environment variable.
  *
- * The development fallback below is committed to the repository, so a
- * production host that forgets `JWT_SECRET` would otherwise mint tokens that
- * anyone could forge — including tokens claiming `SYSTEM_ADMIN`. Failing
- * loudly at startup is the only safe behaviour.
+ * No fallback or default secret is ever provided. The app will fail to
+ * start immediately if JWT_SECRET is not configured, which is the only
+ * safe behaviour. This eliminates the risk of tokens being forged with a
+ * known/secret key that is committed to source control.
  */
 const resolveJwtSecret = (): string => {
   const secret = process.env.JWT_SECRET;
-  if (secret && secret.trim().length >= 32) return secret;
-  if (isProduction) {
+  if (!secret || secret.trim().length < 32) {
     throw new Error(
-      '[Config] JWT_SECRET is missing or too short. ' +
-        'Set a random secret of at least 32 characters before starting in production.'
+      '[Config] JWT_SECRET is required and must be at least 32 characters. ' +
+        'Set it in your .env file or environment.'
     );
   }
-  return 'ovovita-super-secure-jwt-secret-farm-direct-2026';
+  return secret;
 };
 
 export const config = {
