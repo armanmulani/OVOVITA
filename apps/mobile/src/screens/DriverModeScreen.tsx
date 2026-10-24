@@ -2,9 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { mobileApi } from '../api';
 import { offlineSync } from '../services/offlineSync';
 
-export const DriverModeScreen: React.FC = () => {
+interface DriverModeScreenProps {
+  user?: any;
+  onLogout?: () => void;
+}
+
+export const DriverModeScreen: React.FC<DriverModeScreenProps> = ({ user, onLogout }) => {
   const [runs, setRuns] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [filterTab, setFilterTab] = useState<'ACTIVE' | 'DELIVERED' | 'ALL'>('ACTIVE');
   const [isOnline, setIsOnline] = useState<boolean>(offlineSync.isOnline());
   const [pendingQueueCount, setPendingQueueCount] = useState<number>(offlineSync.getQueue().length);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
@@ -50,9 +56,11 @@ export const DriverModeScreen: React.FC = () => {
     }
 
     try {
-      // Login as demo driver if not already
-      const loginRes = await mobileApi.staffLogin('9876500002', '1234', 'DELIVERY_EXECUTIVE');
-      mobileApi.setToken(loginRes.data.token);
+      // Use existing active token if present, otherwise fallback to demo driver login
+      if (!mobileApi.getToken()) {
+        const loginRes = await mobileApi.staffLogin('9876500002', '1234', 'DELIVERY_EXECUTIVE');
+        mobileApi.setToken(loginRes.data.token);
+      }
 
       const res = await mobileApi.getDriverRunSheet();
       setRuns(res.data);
@@ -163,96 +171,209 @@ export const DriverModeScreen: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col pb-8">
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-surface/90 backdrop-blur-md px-4 py-3 border-b border-surface-container shadow-sm flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center text-white shadow-sm">
-            <span className="material-symbols-outlined text-[20px]">two_wheeler</span>
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-secondary">Rider Run-Sheet</span>
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  isOnline ? 'bg-secondary animate-pulse' : 'bg-tertiary'
-                }`}
-                title={isOnline ? 'Online' : 'Offline / Dead Zone'}
-              />
+      <header className="sticky top-0 z-30 bg-surface/90 backdrop-blur-md px-4 py-3 border-b border-surface-container shadow-sm">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center text-white shadow-sm">
+              <span className="material-symbols-outlined text-[20px]">two_wheeler</span>
             </div>
-            <h2 className="text-sm font-bold text-on-surface">Ramesh Kumar (KA-01-EQ-9872)</h2>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-secondary">Rider Run-Sheet</span>
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    isOnline ? 'bg-secondary animate-pulse' : 'bg-tertiary'
+                  }`}
+                  title={isOnline ? 'Online' : 'Offline / Dead Zone'}
+                />
+              </div>
+              <h2 className="text-sm font-bold text-on-surface">
+                {user?.name || 'Ramesh Kumar'} ({user?.phoneNumber ? `+91 ${user.phoneNumber}` : 'KA-01-EQ-9872'})
+              </h2>
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2">
-          {pendingQueueCount > 0 && (
+          <div className="flex items-center gap-2">
+            {pendingQueueCount > 0 && (
+              <button
+                onClick={handleManualSync}
+                disabled={isSyncing}
+                className="text-[11px] bg-secondary/10 border border-secondary text-secondary px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 transition"
+              >
+                <span className={`material-symbols-outlined text-[13px] ${isSyncing ? 'animate-spin' : ''}`}>sync</span>
+                <span>Sync ({pendingQueueCount})</span>
+              </button>
+            )}
+
             <button
-              onClick={handleManualSync}
-              disabled={isSyncing}
-              className="text-[11px] bg-secondary/10 border border-secondary text-secondary px-2 py-1 rounded-lg font-bold flex items-center gap-1 active:scale-95 transition"
+              onClick={loadRuns}
+              className="text-xs bg-surface-container px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1 hover:bg-surface-variant transition"
             >
-              <span className={`material-symbols-outlined text-[13px] ${isSyncing ? 'animate-spin' : ''}`}>sync</span>
-              <span>Sync ({pendingQueueCount})</span>
+              <span className="material-symbols-outlined text-[15px]">refresh</span>
+              <span>Refresh</span>
             </button>
-          )}
 
-          <button
-            onClick={loadRuns}
-            className="text-xs bg-surface-container px-2.5 py-1.5 rounded-lg font-semibold flex items-center gap-1 hover:bg-surface-variant transition"
-          >
-            <span className="material-symbols-outlined text-[15px]">refresh</span>
-            <span>Refresh</span>
-          </button>
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="text-xs font-semibold text-error hover:bg-error-container/30 px-2 py-1 rounded-lg transition"
+              >
+                Logout
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
       {/* Offline Alert Banner */}
       {!isOnline && (
-        <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-amber-700 dark:text-amber-400 flex items-center justify-between text-xs font-medium">
-          <div className="flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-[16px] text-amber-600">wifi_off</span>
-            <span>Basement / Lift Mode: Offline cache active. Actions will auto-sync.</span>
+        <div className="bg-amber-500/10 border-b border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-medium px-4 py-2">
+          <div className="max-w-4xl mx-auto w-full flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[16px] text-amber-600">wifi_off</span>
+              <span>Basement / Lift Mode: Offline cache active. Actions will auto-sync.</span>
+            </div>
           </div>
         </div>
       )}
 
       {/* Driver Buffer Crate Status */}
-      <div className="px-4 py-2.5 bg-primary-fixed/30 text-on-primary-fixed flex items-center justify-between text-xs font-semibold">
-        <div className="flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-[16px] text-primary">inventory</span>
-          <span>Driver Buffer Stock: <strong>6 Fresh Eggs Ready</strong></span>
+      <div className="bg-primary-fixed/30 text-on-primary-fixed text-xs font-semibold px-4 py-2.5">
+        <div className="max-w-4xl mx-auto w-full flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px] text-primary">inventory</span>
+            <span>Driver Buffer Stock: <strong>6 Fresh Eggs Ready</strong></span>
+          </div>
+          <span className="text-[10px] bg-primary text-white px-2 py-0.5 rounded-full font-bold">
+            Zero-Crack Kit
+          </span>
         </div>
-        <span className="text-[10px] bg-primary text-white px-2 py-0.5 rounded-full font-bold">
-          Zero-Crack Kit
-        </span>
       </div>
 
-      <div className="p-4 space-y-4">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
-          Assigned Morning Deliveries ({runs.length})
-        </h3>
+      <div className="p-4 md:p-8 max-w-4xl mx-auto w-full space-y-4">
+        {/* Run Category Filter Tabs */}
+        <div className="flex items-center justify-between flex-wrap gap-2 pb-1 border-b border-surface-container">
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setFilterTab('ACTIVE')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                filterTab === 'ACTIVE'
+                  ? 'bg-secondary text-white shadow-sm'
+                  : 'bg-surface-container hover:bg-surface-variant text-on-surface-variant'
+              }`}
+            >
+              <span>To Deliver (Active)</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                filterTab === 'ACTIVE' ? 'bg-white/20 text-white' : 'bg-secondary-container text-on-secondary-container'
+              }`}>
+                {runs.filter((r) => r.status !== 'DELIVERED').length}
+              </span>
+            </button>
 
-        {runs.length === 0 ? (
-          <div className="py-12 text-center text-on-surface-variant text-sm">
-            <span className="material-symbols-outlined text-[40px] text-outline-variant mb-1">check_circle</span>
-            <p>No pending runs assigned right now.</p>
+            <button
+              onClick={() => setFilterTab('DELIVERED')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                filterTab === 'DELIVERED'
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'bg-surface-container hover:bg-surface-variant text-on-surface-variant'
+              }`}
+            >
+              <span>Delivered</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                filterTab === 'DELIVERED' ? 'bg-white/20 text-white' : 'bg-surface-container-high text-on-surface-variant'
+              }`}>
+                {runs.filter((r) => r.status === 'DELIVERED').length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setFilterTab('ALL')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                filterTab === 'ALL'
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'bg-surface-container hover:bg-surface-variant text-on-surface-variant'
+              }`}
+            >
+              All Runs ({runs.length})
+            </button>
           </div>
-        ) : (
-          runs.map((run) => {
-            const isDelivered = run.status === 'DELIVERED';
+
+          <span className="text-xs text-outline font-semibold">
+            Depot: Koramangala Hub
+          </span>
+        </div>
+
+        {(() => {
+          // A cancelled order the driver still holds eggs for is active work —
+          // the driver must bring the eggs back — so it stays in the ACTIVE
+          // tab, not filed under completed.
+          const activeRuns = runs.filter(
+            (r) => r.status !== 'DELIVERED' && !(r.status === 'CANCELLED' && r.requiresEggReturn !== true)
+          );
+          const completedRuns = runs.filter(
+            (r) => r.status === 'DELIVERED' || (r.status === 'CANCELLED' && r.requiresEggReturn !== true)
+          );
+          const displayedRuns =
+            filterTab === 'ACTIVE'
+              ? activeRuns
+              : filterTab === 'DELIVERED'
+              ? completedRuns
+              : runs;
+
+          if (displayedRuns.length === 0) {
             return (
-              <div
-                key={run._id}
-                className={`bg-surface-container-lowest rounded-2xl p-4 border shadow-sm flex flex-col gap-3 ${
-                  isDelivered ? 'border-secondary/40 opacity-75' : 'border-surface-container'
-                }`}
-              >
+              <div className="py-12 text-center text-on-surface-variant text-sm bg-surface-container-lowest rounded-2xl border border-surface-container p-6">
+                <span className="material-symbols-outlined text-[42px] text-outline-variant mb-1">
+                  {filterTab === 'ACTIVE' ? 'task_alt' : 'inventory_2'}
+                </span>
+                <h4 className="font-bold text-sm text-on-surface">
+                  {filterTab === 'ACTIVE'
+                    ? 'No Active Deliveries Right Now'
+                    : 'No Completed Runs in this Tab'}
+                </h4>
+                <p className="text-xs text-outline mt-1 max-w-sm mx-auto">
+                  {filterTab === 'ACTIVE'
+                    ? 'All assigned deliveries are completed or awaiting dispatch from the depot packing queue.'
+                    : 'Delivered orders will appear here once payment is collected at the customer doorstep.'}
+                </p>
+                {filterTab === 'ACTIVE' && completedRuns.length > 0 && (
+                  <button
+                    onClick={() => setFilterTab('DELIVERED')}
+                    className="mt-3 text-xs bg-primary text-white font-bold px-3 py-1.5 rounded-lg shadow-sm"
+                  >
+                    View {completedRuns.length} Delivered Order(s)
+                  </button>
+                )}
+              </div>
+            );
+          }
+
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {displayedRuns.map((run) => {
+                const isDelivered = run.status === 'DELIVERED';
+                const needsEggReturn = run.status === 'CANCELLED' && run.requiresEggReturn === true;
+                return (
+                  <div
+                    key={run._id}
+                    className={`bg-surface-container-lowest rounded-2xl p-4 md:p-5 border shadow-sm flex flex-col justify-between gap-3 ${
+                      isDelivered
+                        ? 'border-secondary/40 opacity-75'
+                        : needsEggReturn
+                        ? 'border-error/50 bg-error/5'
+                        : 'border-surface-container'
+                    }`}
+                  >
                 <div className="flex items-start justify-between">
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-extrabold text-on-surface">#{run.orderNumber}</span>
                       <span
                         className={`text-[10px] px-2 py-0.2 rounded-full font-bold uppercase ${
                           isDelivered
                             ? 'bg-secondary text-white'
+                            : needsEggReturn
+                            ? 'bg-error text-white'
                             : 'bg-secondary-container text-on-secondary-container'
                         }`}
                       >
@@ -265,13 +386,44 @@ export const DriverModeScreen: React.FC = () => {
                         </span>
                       )}
                     </div>
+
+                    {/* The order was cancelled while the driver was holding the
+                        eggs. The stock has already been returned to the shop,
+                        so the driver must bring these eggs back or the stock
+                        count and the van contents will disagree. */}
+                    {needsEggReturn && (
+                      <div className="mt-2 px-3 py-2 rounded-lg bg-error/15 border border-error/40 text-error">
+                        <div className="text-xs font-extrabold flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[16px]">undo</span>
+                          Return these eggs to the shop
+                        </div>
+                        <div className="text-[11px] font-semibold mt-0.5">
+                          This order was cancelled and you still have{' '}
+                          {run.eggsToReturnCount || 0} egg
+                          {run.eggsToReturnCount === 1 ? '' : 's'}. Please bring{' '}
+                          {run.eggsToReturnCount || 0} back to the depot.
+                        </div>
+                        {run.cancellationNote && (
+                          <div className="text-[11px] font-medium mt-1 opacity-80">
+                            Note: {run.cancellationNote}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="text-sm font-bold text-on-surface mt-1">{run.customerName}</div>
                     <div className="text-xs text-on-surface-variant mt-0.5">
                       {run.deliveryAddress?.flatPlotNumber}, {run.deliveryAddress?.apartmentName || run.deliveryAddress?.streetName}
                     </div>
-                    <div className="text-xs text-primary font-bold mt-1">
-                      Payable: ₹{run.finalPayableAmount} ({run.paymentMethod === 'UPI_ON_DELIVERY' ? 'Doorstep UPI' : 'Cash'})
-                    </div>
+                    {needsEggReturn ? (
+                      <div className="text-xs text-error font-bold mt-1">
+                        Cancelled — do not deliver. Return the eggs to the shop.
+                      </div>
+                    ) : (
+                      <div className="text-xs text-primary font-bold mt-1">
+                        Payable: ₹{run.finalPayableAmount} ({run.paymentMethod === 'UPI_ON_DELIVERY' ? 'Doorstep UPI' : 'Cash'})
+                      </div>
+                    )}
                   </div>
 
                   <a
@@ -282,7 +434,7 @@ export const DriverModeScreen: React.FC = () => {
                   </a>
                 </div>
 
-                {!isDelivered && (
+                {!isDelivered && !needsEggReturn && (
                   <div className="pt-2 border-t border-surface-container flex flex-col gap-2">
                     {/* Broken egg inspection button */}
                     <button
@@ -321,8 +473,10 @@ export const DriverModeScreen: React.FC = () => {
                 )}
               </div>
             );
-          })
-        )}
+          })}
+          </div>
+        );
+      })()}
       </div>
 
       {/* Dynamic Bharat UPI QR Modal */}

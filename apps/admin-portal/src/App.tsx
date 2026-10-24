@@ -9,10 +9,13 @@ import { PriceMaster } from './components/PriceMaster';
 import { ShiftReconciliationModal } from './components/ShiftReconciliationModal';
 import { AddBatchModal } from './components/AddBatchModal';
 import { LoginModal } from './components/LoginModal';
+import { OrderHistory } from './components/OrderHistory';
+import { CancelOrderModal } from './components/CancelOrderModal';
 
 export const App: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [token, setToken] = useState<string | null>(api.getAuthToken());
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'history'>('dashboard');
 
   // Data states
   const [dashboard, setDashboard] = useState<any>(null);
@@ -25,6 +28,7 @@ export const App: React.FC = () => {
   // Modals
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
   const [batchModalProduct, setBatchModalProduct] = useState<any>(null);
+  const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
 
   // Auto-login or verify existing token
   useEffect(() => {
@@ -115,6 +119,47 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleConfirmOrder = async (orderId: string) => {
+    try {
+      await api.confirmOrder(orderId);
+      await loadData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to confirm order');
+    }
+  };
+
+  const handleStartPacking = async (orderId: string) => {
+    try {
+      await api.startPacking(orderId);
+      await loadData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to start packing');
+    }
+  };
+
+  const handleMarkReady = async (orderId: string) => {
+    try {
+      await api.markReadyForDelivery(orderId);
+      await loadData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to mark ready for delivery');
+    }
+  };
+
+  const handleCancelOrder = (orderId: string) => {
+    setCancelOrderId(orderId);
+  };
+
+  const confirmCancelOrder = async (orderId: string, reason: string) => {
+    try {
+      const res = await api.cancelOrder(orderId, reason || undefined);
+      await loadData();
+      return res?.data;
+    } catch (err: any) {
+      throw new Error(err.message || 'Failed to cancel order');
+    }
+  };
+
   const handleUpdatePrice = async (productId: string, unitPricing: any[]) => {
     try {
       await api.updateProductPrice(productId, unitPricing);
@@ -153,8 +198,11 @@ export const App: React.FC = () => {
     <div className="min-h-screen bg-surface flex flex-col antialiased">
       <Header
         user={user}
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
         onLogout={handleLogout}
         onOpenShiftModal={() => setIsShiftModalOpen(true)}
+        packingQueueCount={dashboard?.packingQueue?.length || 0}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-4">
@@ -169,29 +217,42 @@ export const App: React.FC = () => {
           isRefreshing={isRefreshing}
         />
 
-        {/* Real-Time Low-Stock Callout */}
-        <LowStockBanner
-          criticalProducts={dashboard?.criticalStockAlerts || []}
-          onOpenAddBatch={(prod) => setBatchModalProduct(prod)}
-        />
+        {activeTab === 'dashboard' ? (
+          <>
+            {/* Real-Time Low-Stock Callout */}
+            <LowStockBanner
+              criticalProducts={dashboard?.criticalStockAlerts || []}
+              onOpenAddBatch={(prod) => setBatchModalProduct(prod)}
+            />
 
-        {/* Key Metrics Bento Grid */}
-        <KpiCards metrics={dashboard?.metrics || defaultMetrics} />
+            {/* Key Metrics Bento Grid */}
+            <KpiCards metrics={dashboard?.metrics || defaultMetrics} />
 
-        {/* 2-Column Layout for Packing Queue and Price Master */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <OrderPackingQueue
-            orders={dashboard?.packingQueue || []}
-            drivers={dashboard?.availableDrivers || []}
-            onAssignRider={handleAssignRider}
+            {/* 2-Column Layout for Packing Queue and Price Master */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <OrderPackingQueue
+                orders={dashboard?.packingQueue || []}
+                drivers={dashboard?.availableDrivers || []}
+                onAssignRider={handleAssignRider}
+                onConfirmOrder={handleConfirmOrder}
+                onStartPacking={handleStartPacking}
+                onMarkReady={handleMarkReady}
+                onCancelOrder={handleCancelOrder}
+              />
+
+              <PriceMaster
+                products={products}
+                onUpdatePrice={handleUpdatePrice}
+                onOpenAddBatch={(prod) => setBatchModalProduct(prod)}
+              />
+            </div>
+          </>
+        ) : (
+          <OrderHistory
+            depotId={selectedDepotId}
+            onRefreshStats={() => loadData()}
           />
-
-          <PriceMaster
-            products={products}
-            onUpdatePrice={handleUpdatePrice}
-            onOpenAddBatch={(prod) => setBatchModalProduct(prod)}
-          />
-        </div>
+        )}
       </main>
 
       {/* Modals */}
@@ -207,6 +268,13 @@ export const App: React.FC = () => {
         onClose={() => setBatchModalProduct(null)}
         product={batchModalProduct}
         onInwardBatch={handleInwardBatch}
+      />
+
+      <CancelOrderModal
+        isOpen={!!cancelOrderId}
+        orderId={cancelOrderId}
+        onClose={() => setCancelOrderId(null)}
+        onConfirmCancel={confirmCancelOrder}
       />
     </div>
   );

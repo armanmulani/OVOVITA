@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface BottomNavProps {
-  activeTab: 'catalog' | 'cart' | 'tracker' | 'profile' | 'driver';
+  activeTab: 'catalog' | 'cart' | 'checkout' | 'tracker' | 'profile' | 'driver';
   onTabChange: (tab: 'catalog' | 'cart' | 'tracker' | 'profile' | 'driver') => void;
   cartCount: number;
   userRole?: string;
@@ -13,8 +13,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   cartCount,
   userRole,
 }) => {
+  const isCartActive = activeTab === 'cart' || activeTab === 'checkout';
+
   return (
-    <nav className="sticky bottom-0 inset-x-0 bg-surface/95 backdrop-blur-xl border-t border-surface-container-high px-4 py-2 flex items-center justify-around z-40 shadow-lg">
+    <nav className="sticky bottom-0 inset-x-0 bg-surface/95 backdrop-blur-xl border-t border-surface-container-high px-4 py-2 flex items-center justify-around z-40 shadow-lg md:hidden">
       <button
         onClick={() => onTabChange('catalog')}
         className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl transition ${
@@ -33,12 +35,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       <button
         onClick={() => onTabChange('cart')}
         className={`relative flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl transition ${
-          activeTab === 'cart' ? 'text-primary font-bold' : 'text-on-surface-variant hover:text-on-surface'
+          isCartActive ? 'text-primary font-bold' : 'text-on-surface-variant hover:text-on-surface'
         }`}
       >
         <span
           className="material-symbols-outlined text-[24px]"
-          style={activeTab === 'cart' ? { fontVariationSettings: "'FILL' 1" } : {}}
+          style={isCartActive ? { fontVariationSettings: "'FILL' 1" } : {}}
         >
           shopping_bag
         </span>

@@ -53,6 +53,28 @@ export interface IOrderDoc extends Document {
   assignedDeliveryPersonPhone?: string;
   vehiclePlateNumber?: string;
   estimatedDeliveryTime?: string;
+  /** Why the order was cancelled, in the shop's own words. */
+  cancellationNote?: string;
+  /**
+   * Set when an order is cancelled while the driver physically holds the
+   * eggs (OUT_FOR_DELIVERY or READY_FOR_DELIVERY). The driver must bring the
+   * eggs back, so the run sheet flags it.
+   */
+  requiresEggReturn?: boolean;
+  /** How many eggs the driver must return to the shop. */
+  eggsToReturnCount?: number;
+  /**
+   * Set when a DELIVERED order is cancelled: the customer already paid, so
+   * money is owed back. There is no payment gateway, so the owner reverses
+   * it by hand — the system's job is to make sure it is recorded.
+   */
+  refundOwed?: boolean;
+  refundAmount?: number;
+  refundStatus?: 'PENDING' | 'REFUNDED';
+  refundRequestedAt?: Date;
+  refundRequestedBy?: mongoose.Types.ObjectId;
+  /** The UPI transaction to reverse, when the customer paid by UPI. */
+  refundUpiTransactionRef?: string;
   statusTimeline: IOrderStatusTimelineDoc[];
   createdAt: Date;
   updatedAt: Date;
@@ -133,6 +155,15 @@ const OrderSchema = new Schema<IOrderDoc>(
     assignedDeliveryPersonPhone: { type: String },
     vehiclePlateNumber: { type: String },
     estimatedDeliveryTime: { type: String },
+    cancellationNote: { type: String },
+    requiresEggReturn: { type: Boolean, default: false, index: true },
+    eggsToReturnCount: { type: Number },
+    refundOwed: { type: Boolean, default: false, index: true },
+    refundAmount: { type: Number },
+    refundStatus: { type: String, enum: ['PENDING', 'REFUNDED'], index: true },
+    refundRequestedAt: { type: Date },
+    refundRequestedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    refundUpiTransactionRef: { type: String },
     statusTimeline: [OrderStatusTimelineSchema],
   },
   { timestamps: true }

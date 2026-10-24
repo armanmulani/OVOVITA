@@ -1,5 +1,12 @@
 const API_BASE = ((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:4000/api/v1';
 
+class MobileApiError extends Error {
+  constructor(message: string, readonly code?: string) {
+    super(message);
+    this.name = 'MobileApiError';
+  }
+}
+
 export const mobileApi = {
   getToken: () => localStorage.getItem('ovovita_mobile_token'),
   setToken: (t: string) => localStorage.setItem('ovovita_mobile_token', t),
@@ -23,12 +30,12 @@ export const mobileApi = {
 
     const data = await res.json();
     if (!res.ok) {
-      throw new Error(data.error?.message || 'Request failed');
+      throw new MobileApiError(data.error?.message || 'Request failed', data.error?.code);
     }
     return data;
   },
 
-  // Auth
+  // Auth - Phone OTP (Better Auth)
   requestOtp: (phoneNumber: string) =>
     mobileApi.request('/auth/customer/otp-request', {
       method: 'POST',
@@ -39,6 +46,25 @@ export const mobileApi = {
     mobileApi.request('/auth/customer/otp-verify', {
       method: 'POST',
       body: JSON.stringify({ phoneNumber, otpCode }),
+    }),
+
+  // Auth - Email OTP (Free Gmail SMTP)
+  requestEmailOtp: (email: string) =>
+    mobileApi.request('/auth/customer/email-otp-request', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  verifyEmailOtp: (email: string, otpCode: string) =>
+    mobileApi.request('/auth/customer/email-otp-verify', {
+      method: 'POST',
+      body: JSON.stringify({ email, otpCode }),
+    }),
+
+  googleLogin: (idToken: string) =>
+    mobileApi.request('/auth/customer/google', {
+      method: 'POST',
+      body: JSON.stringify({ idToken }),
     }),
 
   staffLogin: (phoneNumber: string, pin: string, role: string) =>

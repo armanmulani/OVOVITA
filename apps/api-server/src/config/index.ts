@@ -80,6 +80,7 @@ export const config = {
    * `ALLOW_DEMO_OTP=true` (the seeded local environment does this).
    */
   allowDemoOtp: (process.env.ALLOW_DEMO_OTP || '').trim().toLowerCase() === 'true',
+  firebaseWebApiKey: process.env.FIREBASE_WEB_API_KEY || process.env.VITE_FIREBASE_API_KEY || '',
 
   // UPI
   upiMerchantVpa: process.env.UPI_MERCHANT_VPA || 'ovovita.depot@okhdfcbank',

@@ -1,80 +1,67 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+
+/**
+ * Firebase client configuration.
+ *
+ * Phone OTP is handled by the API server. Firebase Authentication provides
+ * Google identity; the API verifies its ID token before issuing an app session.
+ */
 
 const firebaseConfig = {
   apiKey: (import.meta as any).env?.VITE_FIREBASE_API_KEY || '',
-  authDomain: (import.meta as any).env?.VITE_FIREBASE_AUTH_DOMAIN || '',
+  authDomain:
+    (import.meta as any).env?.VITE_FIREBASE_AUTH_DOMAIN ||
+    `${(import.meta as any).env?.VITE_FIREBASE_PROJECT_ID || ''}.firebaseapp.com`,
   projectId: (import.meta as any).env?.VITE_FIREBASE_PROJECT_ID || '',
   appId: (import.meta as any).env?.VITE_FIREBASE_APP_ID || '',
+  storageBucket: (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET || '',
+  messagingSenderId: (import.meta as any).env?.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
+  measurementId: (import.meta as any).env?.VITE_FIREBASE_MEASUREMENT_ID || '',
 };
 
-/**
- * Returns true when Firebase env vars are configured (production mode).
- * Returns false when running in dev/demo mode without Firebase keys.
- */
 export const isFirebaseConfigured = (): boolean => {
-  return !!(firebaseConfig.apiKey && firebaseConfig.projectId);
+  return !!(firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId);
 };
 
 const app = isFirebaseConfigured() && getApps().length === 0
   ? initializeApp(firebaseConfig)
   : getApps()[0] || null;
 
+export const firestoreDb = app ? getFirestore(app) : null;
 export const firebaseAuth = app ? getAuth(app) : null;
+export { app as firebaseApp };
 
 /**
- * Set up invisible reCAPTCHA verifier on a DOM element.
- * Must be called once before signInWithPhoneNumber.
+ * Formats a phone number to strict E.164 standard (+[country_code][digits]).
+ * Strips whitespace, dashes, brackets, and handles leading zeros.
  */
-export const setupRecaptcha = (containerId: string): RecaptchaVerifier | null => {
-  if (!firebaseAuth) return null;
-
-  // Clear any existing verifier
-  if ((window as any).__ovovitaRecaptcha) {
-    try {
-      (window as any).__ovovitaRecaptcha.clear();
-    } catch (_) { /* ignore */ }
+export const formatToE164 = (phoneNumber: string, defaultCountryCode = '+91'): string => {
+  if (!phoneNumber) return '';
+  const cleaned = phoneNumber.trim().replace(/[\s\-\(\)]/g, '');
+  if (cleaned.startsWith('+')) {
+    return cleaned;
   }
-
-  const verifier = new RecaptchaVerifier(firebaseAuth, containerId, {
-    size: 'invisible',
-    callback: () => {
-      // reCAPTCHA solved — will proceed with signInWithPhoneNumber
-    },
-    'expired-callback': () => {
-      console.warn('[Firebase] reCAPTCHA expired. User may need to retry.');
-    },
-  });
-
-  (window as any).__ovovitaRecaptcha = verifier;
-  return verifier;
+  const digitsOnly = cleaned.replace(/\D/g, '');
+  // Standard 10-digit number
+  if (digitsOnly.length === 10) {
+    return `${defaultCountryCode}${digitsOnly}`;
+  }
+  // 11 digits with leading 0 (e.g. 09876543210)
+  if (digitsOnly.length === 11 && digitsOnly.startsWith('0')) {
+    return `${defaultCountryCode}${digitsOnly.slice(1)}`;
+  }
+  // 12 digits starting with 91 (e.g. 919876543210)
+  if (digitsOnly.length === 12 && digitsOnly.startsWith('91')) {
+    return `+${digitsOnly}`;
+  }
+  return `${defaultCountryCode}${digitsOnly}`;
 };
 
 /**
- * Send OTP to a phone number using Firebase Phone Auth.
- * Returns a ConfirmationResult to verify the OTP later.
+ * Validates whether a phone number matches standard E.164 pattern.
  */
-export const sendFirebaseOtp = async (
-  phoneNumber: string,
-  recaptchaVerifier: RecaptchaVerifier
-): Promise<ConfirmationResult> => {
-  if (!firebaseAuth) {
-    throw new Error('Firebase is not configured');
-  }
-  // Firebase requires E.164 format: +91XXXXXXXXXX
-  const e164 = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
-  return signInWithPhoneNumber(firebaseAuth, e164, recaptchaVerifier);
-};
-
-/**
- * Verify the OTP code entered by the user.
- * Returns the Firebase ID token for backend verification.
- */
-export const verifyFirebaseOtp = async (
-  confirmationResult: ConfirmationResult,
-  otpCode: string
-): Promise<string> => {
-  const userCredential = await confirmationResult.confirm(otpCode);
-  const idToken = await userCredential.user.getIdToken();
-  return idToken;
+export const isValidE164 = (phoneNumber: string): boolean => {
+  return /^\+[1-9]\d{7,14}$/.test(phoneNumber);
 };

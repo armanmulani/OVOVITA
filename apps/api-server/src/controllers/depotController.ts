@@ -46,9 +46,19 @@ export class DepotController {
     if (depotId) query.depotId = depotId;
 
     const totalOrdersToday = await Order.countDocuments(query);
-    const packingOrders = await Order.find({ ...query, status: { $in: ['CONFIRMED', 'PACKING'] } }).limit(20);
+    // The Packing Queue board now shows real work: orders awaiting
+    // confirmation, orders being packed, and orders packed and waiting for
+    // a driver. Each has a different next action in the admin portal.
+    const packingOrders = await Order.find({
+      ...query,
+      status: { $in: ['PLACED', 'CONFIRMED', 'PACKING', 'READY_FOR_DELIVERY'] },
+    }).limit(20);
     const outForDeliveryOrders = await Order.find({ ...query, status: 'OUT_FOR_DELIVERY' });
     const deliveredToday = await Order.find({ ...query, status: 'DELIVERED' });
+
+    // Refunds the owner must action by hand — a DELIVERED order that was
+    // cancelled after the customer already paid.
+    const refundsOwed = await Order.find({ ...query, refundOwed: true, refundStatus: 'PENDING' });
 
     const totalCodCollected = deliveredToday
       .filter((o) => o.paymentMethod === 'CASH_ON_DELIVERY')
@@ -73,12 +83,18 @@ export class DepotController {
           packingQueueCount: packingOrders.length,
           activeRunsCount: outForDeliveryOrders.length,
           deliveredCount: deliveredToday.length,
+          refundsOwedCount: refundsOwed.length,
+          refundsOwedAmount: refundsOwed.reduce(
+            (sum, o) => sum + (o.refundAmount || 0),
+            0
+          ),
           totalCodCash: totalCodCollected,
           totalUpiDigital: totalUpiCollected,
           totalRevenue: totalCodCollected + totalUpiCollected,
         },
         packingQueue: packingOrders,
         activeRuns: outForDeliveryOrders,
+        refundsOwed: refundsOwed,
         criticalStockAlerts: criticalProducts,
         availableDrivers: activeDrivers,
       },
@@ -107,47 +123,75 @@ export class DepotController {
       });
     }
 
-    order.assignedDeliveryPersonId = driver._id;
-    order.assignedDeliveryPersonName = driver.name;
-    order.assignedDeliveryPersonPhone = driver.phoneNumber;
-    order.vehiclePlateNumber = vehiclePlateNumber || 'KA-01-EQ-9872';
-    order.estimatedDeliveryTime = `${estimatedMinutes || 15} mins`;
-    order.status = 'OUT_FOR_DELIVERY';
+    // Dispatch only happens once the eggs are packed and waiting. The claim
+    // is a conditional update so two dispatchers cannot both move the same
+    // order onto the road.
+    const dispatched = await Order.findOneAndUpdate(
+      { _id: order._id, status: 'READY_FOR_DELIVERY' },
+      {
+        $set: {
+          assignedDeliveryPersonId: driver._id,
+          assignedDeliveryPersonName: driver.name,
+          assignedDeliveryPersonPhone: driver.phoneNumber,
+          vehiclePlateNumber: vehiclePlateNumber || 'KA-01-EQ-9872',
+          estimatedDeliveryTime: `${estimatedMinutes || 15} mins`,
+          status: 'OUT_FOR_DELIVERY',
+        },
+        $push: {
+          statusTimeline: {
+            status: 'OUT_FOR_DELIVERY',
+            timestamp: new Date(),
+            updatedByUserId: req.user?.id as any,
+            note: `Dispatched with ${driver.name} (${vehiclePlateNumber || 'KA-01-EQ-9872'}). ETA: ${estimatedMinutes || 15} mins`,
+          },
+        },
+      },
+      { new: true }
+    );
 
-    order.statusTimeline.push({
-      status: 'OUT_FOR_DELIVERY',
-      timestamp: new Date(),
-      updatedByUserId: req.user?.id as any,
-      note: `Dispatched with ${driver.name} (${order.vehiclePlateNumber}). ETA: ${order.estimatedDeliveryTime}`,
-    });
-
-    await order.save();
+    if (!dispatched) {
+      return res.status(409).json({
+        success: false,
+        error: {
+          code: 'ORDER_CONFLICT',
+          message: `Order is ${order.status} and cannot be dispatched. Pack it first (READY_FOR_DELIVERY).`,
+        },
+      });
+    }
 
     // Trigger Out for Delivery WhatsApp notification to customer
     NotificationService.sendDispatchWhatsApp({
-      orderNumber: order.orderNumber,
-      customerPhone: order.customerPhone,
-      customerName: order.customerName,
+      orderNumber: dispatched.orderNumber,
+      customerPhone: dispatched.customerPhone,
+      customerName: dispatched.customerName,
       riderName: driver.name,
       riderPhone: driver.phoneNumber,
-      amountDue: order.finalPayableAmount,
+      amountDue: dispatched.finalPayableAmount,
     }).catch(console.error);
 
     return res.json({
       success: true,
       message: `Order assigned to ${driver.name} and marked Out for Delivery`,
-      data: order,
+      data: dispatched,
     });
   }
 
   /**
    * Delivery Executive Run-Sheet Tasks
+   *
+   * Includes orders that were cancelled while the driver still held the eggs
+   * — the driver physically has to bring them back to the shop, so they must
+   * stay on the run sheet flagged for egg return. Without this the stock
+   * count and the van contents disagree.
    */
   static async getDriverRunSheet(req: AuthenticatedRequest, res: Response) {
     const driverId = req.user?.id;
     const runs = await Order.find({
       assignedDeliveryPersonId: driverId,
-      status: { $in: ['OUT_FOR_DELIVERY', 'DELIVERED'] },
+      $or: [
+        { status: { $in: ['OUT_FOR_DELIVERY', 'DELIVERED'] } },
+        { status: 'CANCELLED', requiresEggReturn: true },
+      ],
     }).sort({ createdAt: -1 });
 
     return res.json({
@@ -171,11 +215,21 @@ export class DepotController {
       });
     }
 
-    // Query all orders delivered by this driver on shiftDate
+    // Query all orders delivered by this driver on shiftDate.
+    //
+    // A DELIVERED order that was cancelled afterwards (refund owed) is
+    // included too: the driver still physically collected that cash and
+    // hands it over at the shift close. The owner pays the refund from the
+    // shop till, not from the driver's drawer, so excluding it would make
+    // the drawer look short by exactly the refund amount and blame the
+    // driver for the owner's refund.
     const deliveredOrders = await Order.find({
       assignedDeliveryPersonId: deliveryPersonId,
-      status: 'DELIVERED',
       scheduledDeliveryDate: shiftDate,
+      $or: [
+        { status: 'DELIVERED' },
+        { status: 'CANCELLED', refundOwed: true },
+      ],
     });
 
     const expectedCash = deliveredOrders

@@ -3,11 +3,63 @@
 @tailwind utilities;
 
 @layer base {
-  html, body {
-    width: 100%;
-    margin: 0;
-    padding: 0;
+  html {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+  
+  body {
+    @apply bg-surface text-on-surface antialiased;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     overscroll-behavior: none;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  * {
+    @apply border-outline-variant;
+  }
+
+  input, button, textarea, select {
+    font-family: inherit;
+  }
+
+  input[type="text"]:focus,
+  input[type="tel"]:focus,
+  input[type="password"]:focus,
+  input[type="number"]:focus {
+    outline: none;
+    @apply ring-2 ring-primary/30 border-primary;
+  }
+
+  button {
+    @apply active:scale-[0.98] transition-transform duration-150;
+  }
+
+  button:active {
+    @apply scale-95;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary hover:bg-primary-600 text-white font-semibold py-3 px-6 rounded-xl shadow-soft 
+           active:shadow-sm active:scale-[0.98] transition-all duration-200;
+  }
+  
+  .btn-secondary {
+    @apply bg-secondary hover:bg-secondary-600 text-white font-semibold py-3 px-6 rounded-xl shadow-soft
+           active:shadow-sm active:scale-[0.98] transition-all duration-200;
+  }
+
+  .card {
+    @apply bg-white rounded-2xl shadow-soft border border-surface-container-low p-4;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 bg-surface border border-outline-variant rounded-xl 
+           text-on-surface font-medium placeholder:text-on-surface-variant/50
+           focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200;
   }
 }
 
@@ -22,8 +74,23 @@
   word-wrap: normal;
   white-space: nowrap;
   direction: ltr;
+  font-feature-settings: 'liga' 1;
 }
 
 ::-webkit-scrollbar {
   display: none;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }

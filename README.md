@@ -105,6 +105,29 @@ npm run test:e2e           # Full 7-stage lifecycle (Order -> Dispatch -> Doorst
 | **Delivery Executive** | `9876500002` | PIN: `1234` | Driver POS, Dynamic UPI QR & Zero-Crack Buffer Kit |
 | **System Admin** | `9876500000` | PIN: `1234` | Global Fleet & Pricing Master Console |
 
+> **Customer OTP in development:** with `ALLOW_DEMO_OTP=true` and
+> `NODE_ENV` set to anything other than `production`, the login screen shows
+> the demo code `123456`. Without that switch, the randomly generated code is
+> printed in the API server console. Configure `MSG91_AUTH_KEY`,
+> `MSG91_TEMPLATE_ID`, and `MSG91_SENDER_ID` in `.env` to send real SMS;
+> production OTP requests fail rather than silently pretending a message was
+> delivered when MSG91 is not configured.
+>
+> These accounts are created by `npm run seed`, which also wipes and re-creates
+> the demo `depots`, `users`, `products` and `orders` collections.
+
+### Google Sign-In setup
+
+The mobile web app includes Google sign-in through Firebase Authentication.
+In Firebase Console for the project selected in `.firebaserc`, enable the
+**Google** provider, add `localhost` under Authentication → Settings →
+Authorized domains, and copy the Firebase web app settings into the root
+`.env`: `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`,
+`VITE_FIREBASE_PROJECT_ID`, and `VITE_FIREBASE_APP_ID`. Set
+`FIREBASE_WEB_API_KEY` to the same web API key (or use
+`VITE_FIREBASE_API_KEY` for both). Restart the mobile app and API after
+updating `.env`.
+
 ---
 
 ## 🐳 Docker Deployment

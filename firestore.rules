@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (matches auth.uid or custom ID)
+    // Fields:
+    //   - name: string (required, 1-100 chars)
+    //   - phoneNumber: string (required, 10-15 chars)
+    //   - role: string (required, one of ['CUSTOMER', 'SHOPKEEPER', 'DELIVERY_EXECUTIVE', 'SYSTEM_ADMIN'])
+    //   - savedAddresses: list (optional, max 10 items)
+    //   - totalOrdersCount: number (optional, >= 0)
+    //   - zeroCrackRating: number (optional, 0-5)
+    //   - depotId: string (optional)
+    //
+    // Collection: products
+    // Document ID: productId
+    // Fields:
+    //   - name: string (required)
+    //   - category: string (required)
+    //   - currentStock: number (required, >= 0)
+    //   - pricingTiers: list (required)
+    //   - status: string ('ACTIVE' | 'OUT_OF_STOCK' | 'DISCONTINUED')
+    //
+    // Collection: orders
+    // Document ID: orderId
+    // Fields:
+    //   - customerId: string (required, matches auth.uid)
+    //   - customerPhone: string (required)
+    //   - items: list (required, > 0 items)
+    //   - totalAmount: number (required, > 0)
+    //   - status: string ('PENDING', 'CONFIRMED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED')
+    //   - paymentMethod: string ('CASH_ON_DELIVERY', 'UPI_ON_DELIVERY', 'ONLINE')
+    //   - deliveryAddress: map (required)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: depots
+    // Document ID: depotId
+    // Fields:
+    //   - name: string (required)
+    //   - pincodes: list (required)
+    //   - isActive: bool (required)
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isAuthenticated() && isOwner(userId) &&
+        hasRequiredFields(['name', 'phoneNumber', 'role']) &&
+        request.resource.data.role in ['CUSTOMER'];
+      allow update: if isOwner(userId) &&
+        request.resource.data.role == resource.data.role;
+      allow delete: if false;
+    }
+
+    // Products Collection (Catalog)
+    match /products/{productId} {
+      allow read: if true; // Public catalog for egg browsing
+      allow write: if isAuthenticated() && request.auth.token.role in ['SHOPKEEPER', 'SYSTEM_ADMIN'];
+    }
+
+    // Orders Collection
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (
+        resource.data.customerId == request.auth.uid ||
+        request.auth.token.role in ['DELIVERY_EXECUTIVE', 'SHOPKEEPER', 'SYSTEM_ADMIN']
+      );
+      allow create: if isAuthenticated() &&
+        request.resource.data.customerId == request.auth.uid &&
+        hasRequiredFields(['customerId', 'items', 'totalAmount', 'status', 'deliveryAddress']) &&
+        request.resource.data.status == 'PENDING';
+      allow update: if isAuthenticated() && (
+        (resource.data.customerId == request.auth.uid && request.resource.data.status in ['PENDING', 'CANCELLED']) ||
+        request.auth.token.role in ['DELIVERY_EXECUTIVE', 'SHOPKEEPER', 'SYSTEM_ADMIN']
+      );
+      allow delete: if false;
+    }
+
+    // Depots Collection
+    match /depots/{depotId} {
+      allow read: if true; // Public depot locations and pincode coverage checks
+      allow write: if isAuthenticated() && request.auth.token.role in ['SYSTEM_ADMIN'];
+    }
+  }
+}

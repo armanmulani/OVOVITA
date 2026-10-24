@@ -1,20 +1,53 @@
 import mongoose from 'mongoose';
 import { config } from '../config';
 
-const API_BASE = 'http://localhost:4000/api/v1';
+const API_BASE = `http://localhost:${process.env.PORT || 4000}/api/v1`;
+
+/**
+ * Requests an OTP and reads the generated code straight from the Better Auth
+ * verification collection, mirroring what a real SMS delivery would provide.
+ */
+const requestOtp = async (phoneNumber: string): Promise<string> => {
+  const res = await fetch(`${API_BASE}/auth/customer/otp-request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phoneNumber }),
+  });
+  if (!res.ok) {
+    throw new Error(`OTP request failed: ${res.status} ${await res.text()}`);
+  }
+
+  const db = mongoose.connection.db;
+  if (!db) throw new Error('MongoDB connection is not available');
+
+  const row = await db
+    .collection('betterauthverifications')
+    .find({ identifier: `+91${phoneNumber}` })
+    .sort({ createdAt: -1 })
+    .limit(1)
+    .next();
+
+  if (!row) throw new Error(`No OTP stored for ${phoneNumber}`);
+  return String(row.value).split(':')[0];
+};
 
 const runE2EJourney = async () => {
   console.log('🚀 Running Complete Ovovita End-to-End Lifecycle Journey...\n');
 
   try {
+    // The OTP code is read straight from the Better Auth verification
+    // collection, so the test needs its own MongoDB connection.
+    await mongoose.connect(config.mongoUri);
+
     // ----------------------------------------------------
     // STEP 1: Customer Authentication via OTP
     // ----------------------------------------------------
     console.log('Step 1: Customer Rahul Sharma logs in via OTP...');
+    const otpCode = await requestOtp('9876543210');
     const otpVerifyRes = await fetch(`${API_BASE}/auth/customer/otp-verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phoneNumber: '9876543210', otpCode: '123456' }),
+      body: JSON.stringify({ phoneNumber: '9876543210', otpCode }),
     });
     const otpData = await otpVerifyRes.json();
     console.assert(otpVerifyRes.ok, 'Customer login failed');
@@ -146,8 +179,11 @@ const runE2EJourney = async () => {
     // STEP 6: Driver Displays Dynamic Bharat UPI QR & Collects
     // ----------------------------------------------------
     console.log('\nStep 6: Driver generates dynamic Bharat UPI QR for customer scan-and-pay...');
-    const qrRes = await fetch(`${API_BASE}/orders/${createdOrder._id}/upi-qr`);
+    const qrRes = await fetch(`${API_BASE}/orders/${createdOrder._id}/upi-qr`, {
+      headers: { Authorization: `Bearer ${driverToken}` },
+    });
     const qrData = await qrRes.json();
+    console.assert(qrRes.ok, 'UPI QR generation failed');
     console.log(`  ✅ Dynamic UPI QR URI: ${qrData.data.upiDeepLink}`);
 
     const collectRes = await fetch(`${API_BASE}/orders/collect-payment`, {
@@ -197,6 +233,8 @@ const runE2EJourney = async () => {
   } catch (error) {
     console.error('E2E Journey Error:', error);
     process.exit(1);
+  } finally {
+    await mongoose.disconnect();
   }
 };
 

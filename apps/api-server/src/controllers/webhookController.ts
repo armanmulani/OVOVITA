@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import { Order } from '../models/Order';
 import { User } from '../models/User';
+import { config } from '../config';
 
 export class WebhookController {
   /**
@@ -24,9 +26,57 @@ export class WebhookController {
   }
 
   /**
+   * Verifies Meta's `X-Hub-Signature-256` header.
+   *
+   * Without this check, anyone who learns the webhook URL can POST a forged
+   * inbound message and make the bot reply with a customer's order number,
+   * rider name, ETA and amount due.
+   *
+   * The signature is `sha256=<hmac>` where the HMAC is over the raw request
+   * body using the app secret. The comparison is timing-safe.
+   *
+   * When no app secret is configured the check is skipped, so local
+   * development and the test suite keep working — but that also means a
+   * deployment without `META_APP_SECRET` is unprotected, which the
+   * deployment checklist calls out.
+   */
+  private static hasValidSignature(req: Request): boolean {
+    const appSecret = config.metaAppSecret;
+    if (!appSecret) {
+      console.warn(
+        '[Meta Webhook] ⚠️  META_APP_SECRET is not set — inbound webhook signature verification is DISABLED.'
+      );
+      return true;
+    }
+
+    const header = req.header('x-hub-signature-256') || '';
+    if (!header.startsWith('sha256=')) return false;
+
+    const provided = header.slice('sha256='.length);
+    const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
+    if (!rawBody) return false;
+
+    const expected = crypto
+      .createHmac('sha256', appSecret)
+      .update(rawBody)
+      .digest('hex');
+
+    const a = Buffer.from(provided, 'utf8');
+    const b = Buffer.from(expected, 'utf8');
+    if (a.length !== b.length) return false;
+
+    return crypto.timingSafeEqual(a, b);
+  }
+
+  /**
    * Handle Inbound Customer Messages & Delivery Status Receipts
    */
   static async handleInboundMessage(req: Request, res: Response) {
+    if (!WebhookController.hasValidSignature(req)) {
+      console.warn('[Meta Webhook] ❌ Rejected inbound message: invalid signature.');
+      return res.sendStatus(401);
+    }
+
     const body = req.body;
 
     // Meta sends empty body for some validation events

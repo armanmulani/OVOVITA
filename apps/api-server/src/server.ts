@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { createApp } from './app';
 import { config } from './config';
+import { startPlacedOrderSweep } from './services/OrderService';
 
 const startServer = async () => {
   try {
@@ -9,6 +10,10 @@ const startServer = async () => {
     console.log('[Database] Connected to MongoDB successfully.');
 
     const app = createApp();
+
+    // Sweep PLACED orders that were never confirmed, so a stale request does
+    // not sit in the day's plan indefinitely. No external service needed.
+    startPlacedOrderSweep();
 
     app.listen(config.port, () => {
       console.log(`=========================================`);
