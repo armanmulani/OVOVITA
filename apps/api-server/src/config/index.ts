@@ -41,8 +41,6 @@ const loadEnv = () => {
 
 loadEnv();
 
-const isProduction = (process.env.NODE_ENV || '').trim() === 'production';
-
 /**
  * Requires JWT_SECRET to be set via environment variable.
  *
@@ -65,21 +63,11 @@ const resolveJwtSecret = (): string => {
 export const config = {
   port: parseInt(process.env.PORT || '4000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
-  isProduction,
   mongoUri: process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/ovovita',
   jwtSecret: resolveJwtSecret(),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   corsAllowedOrigins: (process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:5174').split(','),
 
-  /**
-   * Opt-in switch for the fixed demo OTP code (`123456`).
-   *
-   * This is OFF unless explicitly enabled, so a production host that forgets
-   * `NODE_ENV=production` cannot fall back to accepting a publicly known OTP
-   * for every customer account. Demo mode is turned on by setting
-   * `ALLOW_DEMO_OTP=true` (the seeded local environment does this).
-   */
-  allowDemoOtp: (process.env.ALLOW_DEMO_OTP || '').trim().toLowerCase() === 'true',
   firebaseWebApiKey: process.env.FIREBASE_WEB_API_KEY || process.env.VITE_FIREBASE_API_KEY || '',
 
   // UPI
@@ -92,13 +80,6 @@ export const config = {
   metaWebhookVerifyToken: process.env.META_WEBHOOK_VERIFY_TOKEN || 'ovovita_meta_challenge_secret_2026',
   /** App secret used to verify Meta's `X-Hub-Signature-256` on inbound webhooks. */
   metaAppSecret: process.env.META_APP_SECRET || '',
-
-  // Email SMTP
-  smtpHost: process.env.SMTP_HOST || 'smtp.gmail.com',
-  smtpPort: parseInt(process.env.SMTP_PORT || '587', 10),
-  smtpUser: process.env.SMTP_USER || '',
-  smtpPass: process.env.SMTP_PASS || '',
-  emailFrom: process.env.EMAIL_FROM || '',
 
   defaultDepotCode: 'KOR-DEPOT-01',
 };

@@ -1,58 +1,41 @@
 import mongoose from 'mongoose';
+import jwt from 'jsonwebtoken';
 import { config } from '../config';
+import { User } from '../models/User';
 
 const API_BASE = `http://localhost:${process.env.PORT || 4000}/api/v1`;
 
-/**
- * Requests an OTP and reads the generated code straight from the Better Auth
- * verification collection, mirroring what a real SMS delivery would provide.
- */
-const requestOtp = async (phoneNumber: string): Promise<string> => {
-  const res = await fetch(`${API_BASE}/auth/customer/otp-request`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phoneNumber }),
-  });
-  if (!res.ok) {
-    throw new Error(`OTP request failed: ${res.status} ${await res.text()}`);
-  }
+const tokenFor = async (phoneNumber: string): Promise<string> => {
+  const user = await User.findOne({ phoneNumber });
+  if (!user) throw new Error(`Seeded test user not found: ${phoneNumber}`);
 
-  const db = mongoose.connection.db;
-  if (!db) throw new Error('MongoDB connection is not available');
-
-  const row = await db
-    .collection('betterauthverifications')
-    .find({ identifier: `+91${phoneNumber}` })
-    .sort({ createdAt: -1 })
-    .limit(1)
-    .next();
-
-  if (!row) throw new Error(`No OTP stored for ${phoneNumber}`);
-  return String(row.value).split(':')[0];
+  return jwt.sign(
+    {
+      id: user._id,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+      name: user.name,
+      depotId: user.depotId,
+    },
+    config.jwtSecret,
+    { expiresIn: '30d' }
+  );
 };
 
 const runE2EJourney = async () => {
   console.log('🚀 Running Complete Ovovita End-to-End Lifecycle Journey...\n');
 
   try {
-    // The OTP code is read straight from the Better Auth verification
-    // collection, so the test needs its own MongoDB connection.
+    // The workflow uses a signed fixture token; Google token exchange is
+    // covered independently from this order-lifecycle integration test.
     await mongoose.connect(config.mongoUri);
 
     // ----------------------------------------------------
-    // STEP 1: Customer Authentication via OTP
+    // STEP 1: Load a seeded customer session
     // ----------------------------------------------------
-    console.log('Step 1: Customer Rahul Sharma logs in via OTP...');
-    const otpCode = await requestOtp('9876543210');
-    const otpVerifyRes = await fetch(`${API_BASE}/auth/customer/otp-verify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phoneNumber: '9876543210', otpCode }),
-    });
-    const otpData = await otpVerifyRes.json();
-    console.assert(otpVerifyRes.ok, 'Customer login failed');
-    const customerToken = otpData.data.token;
-    console.log(`  ✅ Customer Authenticated. Token received.`);
+    console.log('Step 1: Load customer session for Rahul Sharma...');
+    const customerToken = await tokenFor('9876543210');
+    console.log('  ✅ Customer session ready.');
 
     // ----------------------------------------------------
     // STEP 2: Fetch Active Catalog & Check Availability

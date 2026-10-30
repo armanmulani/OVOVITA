@@ -10,6 +10,20 @@ import { AuthenticatedRequest } from '../middleware/authMiddleware';
 
 export class DepotController {
   /**
+   * Get single depot by id
+   */
+  static async getDepot(req: Request, res: Response) {
+    const depot = await Depot.findById(req.params.id);
+    if (!depot) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Depot not found' },
+      });
+    }
+    return res.json({ success: true, data: depot });
+  }
+
+  /**
    * List all distribution depot hubs
    */
   static async getAllDepots(req: Request, res: Response) {
@@ -174,6 +188,37 @@ export class DepotController {
       message: `Order assigned to ${driver.name} and marked Out for Delivery`,
       data: dispatched,
     });
+  }
+
+  /**
+   * Update depot address and location via admin settings
+   * Uses Photon autocomplete coordinates; address is admin managed
+   */
+  static async updateDepot(req: AuthenticatedRequest, res: Response) {
+    const { address, name, contactPerson, contactPhone, servicedPincodes, location } = req.body;
+    const depotId = req.params.id;
+    if (!address && !name && !contactPerson && !contactPhone && !location) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'No fields to update' },
+      });
+    }
+    const update: any = {};
+    if (address) update.address = address;
+    if (name) update.name = name;
+    if (contactPerson) update.contactPerson = contactPerson;
+    if (contactPhone) update.contactPhone = contactPhone;
+    if (servicedPincodes) update.servicedPincodes = servicedPincodes;
+    if (location) update.location = location;
+
+    const depot = await Depot.findByIdAndUpdate(depotId, update, { new: true, runValidators: true });
+    if (!depot) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Depot not found' },
+      });
+    }
+    return res.json({ success: true, data: depot });
   }
 
   /**

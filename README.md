@@ -25,7 +25,7 @@
 ovovita/
 ├── packages/
 │   ├── shared-types/        # TypeScript interfaces (IOrder, IProduct, IUser, IDepot, IShiftReconciliation)
-│   ├── validation/          # Zod validation schemas for OTP, Staff PIN, Orders, Adjustments
+│   ├── validation/          # Zod validation schemas for Staff PIN, Orders, Adjustments
 │   └── ui-tokens/           # Warm Modern Organic theme tokens from DESIGN.md
 ├── apps/
 │   ├── api-server/          # Express + TypeScript + Mongoose + BullMQ clean architecture backend
@@ -100,19 +100,11 @@ npm run test:e2e           # Full 7-stage lifecycle (Order -> Dispatch -> Doorst
 
 | Role | Mobile Number | Password / PIN | Description |
 | :--- | :--- | :--- | :--- |
-| **Customer** | `9876543210` | OTP: `123456` | Doorstep Ordering, Slot Booking & Live Tracking |
+| **Customer** | Google account | Google Sign-In | Doorstep Ordering, Slot Booking & Live Tracking |
 | **Depot Lead / Shop** | `9876500001` | PIN: `1234` | Depot Inventory, Packing Queue & Shift Drawer Close |
 | **Delivery Executive** | `9876500002` | PIN: `1234` | Driver POS, Dynamic UPI QR & Zero-Crack Buffer Kit |
 | **System Admin** | `9876500000` | PIN: `1234` | Global Fleet & Pricing Master Console |
 
-> **Customer OTP in development:** with `ALLOW_DEMO_OTP=true` and
-> `NODE_ENV` set to anything other than `production`, the login screen shows
-> the demo code `123456`. Without that switch, the randomly generated code is
-> printed in the API server console. Configure `MSG91_AUTH_KEY`,
-> `MSG91_TEMPLATE_ID`, and `MSG91_SENDER_ID` in `.env` to send real SMS;
-> production OTP requests fail rather than silently pretending a message was
-> delivered when MSG91 is not configured.
->
 > These accounts are created by `npm run seed`, which also wipes and re-creates
 > the demo `depots`, `users`, `products` and `orders` collections.
 

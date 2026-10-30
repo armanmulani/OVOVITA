@@ -13,6 +13,8 @@ export interface AddressData {
   city: string;
   gateSecurityInstructions?: string;
   isDefault?: boolean;
+  latitude?: number;
+  longitude?: number;
 }
 
 interface AddressEditModalProps {
@@ -23,6 +25,8 @@ interface AddressEditModalProps {
   defaultName?: string;
   defaultPhone?: string;
 }
+
+const PHOTON_API_URL = 'https://photon.komoot.io/api';
 
 export const AddressEditModal: React.FC<AddressEditModalProps> = ({
   isOpen,
@@ -43,9 +47,12 @@ export const AddressEditModal: React.FC<AddressEditModalProps> = ({
   const [city, setCity] = useState('Bengaluru');
   const [gateSecurityInstructions, setGateSecurityInstructions] = useState('');
   const [isDefault, setIsDefault] = useState(true);
+  const [latitude, setLatitude] = useState<number | undefined>(undefined);
+  const [longitude, setLongitude] = useState<number | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Initialize from existing address or defaults
   useEffect(() => {
     if (initialAddress) {
       setTag(initialAddress.tag || 'HOME');
@@ -59,6 +66,9 @@ export const AddressEditModal: React.FC<AddressEditModalProps> = ({
       setCity(initialAddress.city || 'Bengaluru');
       setGateSecurityInstructions(initialAddress.gateSecurityInstructions || '');
       setIsDefault(initialAddress.isDefault ?? true);
+      // Capture lat/lng if provided
+      if (initialAddress.latitude !== undefined) setLatitude(initialAddress.latitude);
+      if (initialAddress.longitude !== undefined) setLongitude(initialAddress.longitude);
     } else {
       setTag('HOME');
       setRecipientName(defaultName);
@@ -72,8 +82,99 @@ export const AddressEditModal: React.FC<AddressEditModalProps> = ({
       setGateSecurityInstructions('');
       setIsDefault(true);
     }
-    setErrorMsg('');
-  }, [initialAddress, isOpen, defaultName, defaultPhone]);
+  }, [initialAddress, defaultName, defaultPhone]);
+
+  // Photon autocomplete state
+  const [query, setQuery] = useState(initialAddress?.pincode || '');
+  const [results, setResults] = useState<any[]>([]);
+  const [selectedResult, setSelectedResult] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const debounceTimeout = setTimeout(async () => {
+      if (query.trim().length < 2) {
+        setResults([]);
+        setSelectedResult(null);
+        return;
+      }
+      setIsLoading(true);
+      try {
+        const response = await fetch(`${PHOTON_API_URL}?q=${encodeURIComponent(query)}&limit=5`);
+        if (!response.ok) throw new Error('Photon API error');
+        const data: any = await response.json();
+        if (!cancelled) {
+          setResults(data.features || []);
+          // Auto-select first result if only one match
+          if (data.features?.length === 1) {
+            setSelectedResult(data.features[0]);
+          }
+        }
+      } catch (err) {
+        console.warn('[Photon] autocomplete error:', err);
+        if (!cancelled) {
+          setResults([]);
+          setSelectedResult(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(debounceTimeout);
+    };
+  }, [query]);
+
+  const handleSelect = (result: any) => {
+    setSelectedResult(result);
+    // Populate address fields from Photon result
+    setPincode(result.properties.postcode || '');
+    setCity(result.properties.city || 'Bengaluru');
+    // Set latitude/longitude from geometry coordinates [longitude, latitude]
+    const [lon, lat] = result.geometry.coordinates;
+    setLatitude(lat);
+    setLongitude(lon);
+
+    // Hide the list
+    setResults([]);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setQuery(value);
+    // If user is typing pincode directly, still debounce
+    if (/^\d{6}$/.test(value)) {
+      // User typed a 6-digit pincode - fetch immediately
+      setTimeout(async () => {
+        if (query.trim().length === 6) {
+          setIsLoading(true);
+          try {
+            const response = await fetch(`${PHOTON_API_URL}?q=${encodeURIComponent(value)}&limit=1`);
+            if (!response.ok) throw new Error('Photon API error');
+            const data: any = await response.json();
+            if (data.features && data.features.length > 0) {
+              const result = data.features[0];
+              const [lon, lat] = result.geometry.coordinates;
+              setPincode(result.properties.postcode || value);
+              setCity(result.properties.city || 'Bengaluru');
+              setLatitude(lat);
+              setLongitude(lon);
+              setSelectedResult(result);
+            }
+          } catch (err) {
+            console.warn('[Photon] pincode lookup error:', err);
+          } finally {
+            setIsLoading(false);
+          }
+        }
+      }, 300);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -83,8 +184,12 @@ export const AddressEditModal: React.FC<AddressEditModalProps> = ({
       setErrorMsg('Please fill in Flat Number, Street, and Pincode.');
       return;
     }
-    if (pincode.trim().length !== 6) {
-      setErrorMsg('Please enter a valid 6-digit Indian pincode.');
+    if (!/^[6-9]\d{9}$/.test(phoneNumber.trim())) {
+      setErrorMsg('Please enter a valid 10-digit Indian mobile number for delivery.');
+      return;
+    }
+    if (pincode.trim().length !== 6 && !latitude) {
+      setErrorMsg('Please enter a valid 6-digit Indian pincode or select an address from the autocomplete suggestions.');
       return;
     }
 
@@ -95,7 +200,7 @@ export const AddressEditModal: React.FC<AddressEditModalProps> = ({
         id: initialAddress?.id,
         tag,
         recipientName: recipientName.trim() || 'Valued Customer',
-        phoneNumber: phoneNumber.trim() || '9876543210',
+        phoneNumber: phoneNumber.trim(),
         flatPlotNumber: flatPlotNumber.trim(),
         apartmentName: apartmentName.trim(),
         streetName: streetName.trim(),
@@ -103,7 +208,8 @@ export const AddressEditModal: React.FC<AddressEditModalProps> = ({
         pincode: pincode.trim(),
         city: city.trim() || 'Bengaluru',
         gateSecurityInstructions: gateSecurityInstructions.trim(),
-        isDefault,
+        latitude,
+        longitude,
       });
       onClose();
     } catch (err: any) {
@@ -130,6 +236,69 @@ export const AddressEditModal: React.FC<AddressEditModalProps> = ({
             <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
         </div>
+
+        {errorMsg && (
+          <div className="mt-3 p-2 bg-error-container text-on-error-container text-xs rounded-lg font-semibold flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[15px]">error</span>
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {/* Photon Autocomplete Search Box */}
+        <div className="mt-2 mb-3">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[11px] font-bold text-on-surface-variant block mb-0.5">
+                Address or Pincode *
+              </label>
+              <input
+                type="text"
+                onChange={handleInputChange}
+                value={query}
+                placeholder="e.g. 560034 or Koramangala, Bengaluru"
+                className="w-full text-xs font-semibold px-2.5 py-1.5 bg-surface-container-low border border-surface-container rounded-lg text-on-surface focus:outline-none focus:border-primary transition"
+                aria-live="polite"
+              />
+            </div>
+            {isLoading && (
+              <span className="text-[10px] text-on-surface-variant">Searching...</span>
+            )}
+          </div>
+        </div>
+
+        {/* Photon Suggestions Dropdown */}
+        {results.length > 0 && (
+          <div className="mt-2 max-h-40 overflow-y-auto border border-surface-container/50 rounded-lg bg-surface-container-low">
+            {results.map((result, idx) => (
+              <div
+                key={idx}
+                onClick={() => handleSelect(result)}
+                className="py-2 px-3 cursor-pointer transition hover:bg-surface-container/30 flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined text-[14px] text-primary">location_on</span>
+                <div className="flex-1 truncate">
+                  <div className="font-semibold text-on-surface">{result.properties.name || result.properties.postcode}</div>
+                  <div className="text-[10px] text-on-surface-variant">
+                    {result.properties.city}, {result.properties.state || ''} {result.properties.postcode || ''}
+                      . {result.properties.country || 'India'}</div>
+                </div>
+                <span className="text-[10px] text-on-surface/40 ml-auto">{result.properties.type || ''}</span>
+              </div>
+            ))}
+            {selectedResult && results.length > 0 ? (
+              <div
+                key="selected"
+                onClick={() => handleSelect(selectedResult)}
+                className="py-2 px-3 cursor-pointer transition bg-primary/20 border-primary border"
+              >
+                <span className="material-symbols-outlined text-[14px] text-primary">check_circle</span>
+                <span className="font-medium text-on-surface">
+                  Selected: {selectedResult.properties.name || selectedResult.properties.postcode}
+                </span>
+              </div>
+            ) : null}
+          </div>
+        )}
 
         {errorMsg && (
           <div className="mt-3 p-2 bg-error-container text-on-error-container text-xs rounded-lg font-semibold flex items-center gap-1.5">
@@ -253,7 +422,29 @@ export const AddressEditModal: React.FC<AddressEditModalProps> = ({
                 maxLength={6}
                 placeholder="560034"
                 value={pincode}
-                onChange={(e) => setPincode(e.target.value)}
+                onChange={(e) => {
+                  setPincode(e.target.value);
+                  // Also trigger photon lookup for 6-digit pincodes
+                  if (/^\d{6}$/.test(e.target.value)) {
+                    setTimeout(async () => {
+                      try {
+                        const response = await fetch(`${PHOTON_API_URL}?q=${encodeURIComponent(e.target.value)}&limit=1`);
+                        if (!response.ok) throw new Error('Photon API error');
+                        const data: any = await response.json();
+                        if (data.result && data.result.length > 0) {
+                          const result = data.result[0];
+                          const [lon, lat] = result.geometry.coordinates;
+                          setPincode(result.properties.postcode || e.target.value);
+                          setCity(result.properties.city || 'Bengaluru');
+                          setLatitude(lat);
+                          setLongitude(lon);
+                        }
+                      } catch (err) {
+                        console.warn('[Photon] pincode lookup error:', err);
+                      }
+                    }, 300);
+                  }
+                }}
                 className="w-full text-xs font-semibold px-2.5 py-1.5 bg-surface-container-low border border-surface-container rounded-lg text-on-surface focus:outline-none focus:border-primary"
               />
             </div>

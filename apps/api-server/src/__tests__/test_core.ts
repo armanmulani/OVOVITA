@@ -1,5 +1,4 @@
 import {
-  CustomerOtpVerifySchema,
   StaffLoginSchema,
   CreateOrderSchema,
   AdjustBrokenEggsSchema,
@@ -11,13 +10,6 @@ const runTests = () => {
 
   // Test 1: Validation Schemas
   console.log('Test 1: Validating schemas...');
-  const otpResult = CustomerOtpVerifySchema.safeParse({
-    phoneNumber: '9876543210',
-    otpCode: '123456',
-  });
-  console.assert(otpResult.success, 'OTP verification schema failed');
-  console.log('  ✅ Customer OTP schema passed');
-
   const staffResult = StaffLoginSchema.safeParse({
     phoneNumber: '9876500001',
     pin: '1234',
@@ -73,7 +65,7 @@ const runTests = () => {
   console.assert(upiUrl.includes('am=195.00'), 'UPI Amount missing');
   console.log('  ✅ Dynamic Doorstep UPI QR format verified');
 
-  console.log('\n🎉 ALL 4 CORE VERIFICATION TESTS PASSED SUCCESSFULLY!');
+  console.log('\n🎉 ALL CORE VERIFICATION TESTS PASSED SUCCESSFULLY!');
 };
 
 runTests();

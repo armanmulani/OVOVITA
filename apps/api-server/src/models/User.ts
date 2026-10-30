@@ -29,12 +29,7 @@ export interface IUserDoc extends Document {
   isMorningReminderEnabled: boolean;
   totalOrdersCount: number;
   zeroCrackRating: number;
-  /** Set once the customer has completed a Better Auth phone OTP verification. */
-  phoneNumberVerified?: boolean;
-  /** Set once the customer has completed an email OTP verification. */
   emailVerified?: boolean;
-  /** Links this app profile to the Better Auth identity record. */
-  betterAuthUserId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -74,9 +69,7 @@ const UserSchema = new Schema<IUserDoc>(
     isMorningReminderEnabled: { type: Boolean, default: true },
     totalOrdersCount: { type: Number, default: 0 },
     zeroCrackRating: { type: Number, default: 5.0 },
-    phoneNumberVerified: { type: Boolean, default: false },
     emailVerified: { type: Boolean, default: false },
-    betterAuthUserId: { type: String },
   },
   { timestamps: true }
 );

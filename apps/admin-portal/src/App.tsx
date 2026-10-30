@@ -11,6 +11,7 @@ import { AddBatchModal } from './components/AddBatchModal';
 import { LoginModal } from './components/LoginModal';
 import { OrderHistory } from './components/OrderHistory';
 import { CancelOrderModal } from './components/CancelOrderModal';
+import { DepotEditModal } from './components/DepotEditModal';
 
 export const App: React.FC = () => {
   const [user, setUser] = useState<any>(null);
@@ -29,6 +30,7 @@ export const App: React.FC = () => {
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
   const [batchModalProduct, setBatchModalProduct] = useState<any>(null);
   const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
+  const [isDepotEditOpen, setIsDepotEditOpen] = useState(false);
 
   // Auto-login or verify existing token
   useEffect(() => {
@@ -213,6 +215,8 @@ export const App: React.FC = () => {
           depots={depots}
           selectedDepotId={selectedDepotId}
           onSelectDepot={handleSelectDepot}
+          canEditDepot={user?.role === 'SYSTEM_ADMIN'}
+          onEditDepot={() => setIsDepotEditOpen(true)}
           onRefresh={() => loadData()}
           isRefreshing={isRefreshing}
         />
@@ -275,6 +279,12 @@ export const App: React.FC = () => {
         orderId={cancelOrderId}
         onClose={() => setCancelOrderId(null)}
         onConfirmCancel={confirmCancelOrder}
+      />
+      <DepotEditModal
+        isOpen={isDepotEditOpen}
+        onClose={() => setIsDepotEditOpen(false)}
+        depotId={selectedDepotId}
+        onSave={loadData}
       />
     </div>
   );

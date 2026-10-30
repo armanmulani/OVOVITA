@@ -3,15 +3,6 @@ import { z } from 'zod';
 // ==========================================
 // 1. Auth Schemas
 // ==========================================
-export const CustomerOtpRequestSchema = z.object({
-  phoneNumber: z.string().regex(/^[6-9]\d{9}$/, 'Invalid Indian 10-digit mobile number'),
-});
-
-export const CustomerOtpVerifySchema = z.object({
-  phoneNumber: z.string().min(10, 'Valid mobile number required'),
-  otpCode: z.string().min(4).max(6, 'OTP must be 4 to 6 digits'),
-});
-
 export const StaffLoginSchema = z.object({
   phoneNumber: z.string().regex(/^[6-9]\d{9}$/, 'Invalid Indian 10-digit mobile number'),
   pin: z.string().min(4).max(6, 'PIN must be 4 to 6 digits'),

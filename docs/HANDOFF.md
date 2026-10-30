@@ -1,7 +1,7 @@
 # Ovovita — Client Handoff Guide
 
 **Prepared:** 2026-10-21
-**Stack:** Node 22 · Express 5 · MongoDB (Mongoose 9) · React 19 · Vite 8 · Tailwind 4 · Better Auth 1.7
+**Stack:** Node 22 · Express 5 · MongoDB (Mongoose 9) · React 19 · Vite 8 · Tailwind 4 · Firebase Google Sign-In
 
 ---
 
@@ -67,15 +67,10 @@ frontends can reach it.
 
 | Role | Mobile Number | Credential | Lands in |
 | :--- | :--- | :--- | :--- |
-| Customer | `9876543210` | OTP `123456` | Customer app — catalog, checkout, tracking |
+| Customer | Google account | Google Sign-In | Customer app — catalog, checkout, tracking |
 | Depot Lead / Owner | `9876500001` | PIN `1234` | Admin portal — packing queue, dispatch, cash drawer |
 | Delivery Executive | `9876500002` | PIN `1234` | Mobile app → Driver mode — run sheet, UPI QR, buffer swap |
 | System Admin | `9876500000` | PIN `1234` | Admin portal — global fleet & pricing |
-
-> **Customer OTP:** the fixed code `123456` works whenever `NODE_ENV != production`.
-> The randomly generated code is *also* printed to the API console
-> (`[Better Auth] 📱 OTP for +919876543210: 218087`) and is accepted too.
-> In production only the real SMS-delivered code is accepted.
 
 The mobile app signs in the driver automatically with `9876500002` / `1234` when you open
 **Driver mode**, so you can go straight to the run sheet.
@@ -86,7 +81,7 @@ The mobile app signs in the driver automatically with `9876500002` / `1234` when
 
 1. **Admin portal →** sign in as `9876500001` / `1234`. You land on the depot dashboard:
    live metrics, packing queue, available drivers, critical-stock alerts.
-2. **Mobile app (customer) →** sign in as `9876543210` / OTP `123456`. Browse the catalog —
+2. **Mobile app (customer) →** sign in with Google. Browse the catalog —
    note the live stock count on each product.
 3. **Checkout →** add a dozen, choose MORNING_RUSH, place the order. Watch the stock
    counter drop. This is the atomic-lock path: it cannot oversell.
@@ -109,8 +104,7 @@ Interactive docs at **http://localhost:4000/api/v1/docs**.
 | Endpoint | Method | Auth | Purpose |
 | :--- | :--- | :--- | :--- |
 | `/health` | GET | — | Liveness probe |
-| `/api/v1/auth/customer/otp-request` | POST | — | Send phone OTP |
-| `/api/v1/auth/customer/otp-verify` | POST | — | Verify OTP, returns JWT |
+| `/api/v1/auth/customer/google` | POST | — | Exchange verified Firebase Google ID token for JWT |
 | `/api/v1/auth/staff/login` | POST | — | PIN login (staff) |
 | `/api/v1/auth/profile` | GET | JWT | Current profile |
 | `/api/v1/auth/addresses` | GET/POST/PUT/DELETE | JWT | Saved addresses |
@@ -142,22 +136,17 @@ All variables live in `.env` (copy from `.env.example`).
 | Variable | Required | Default | Notes |
 | :--- | :--- | :--- | :--- |
 | `PORT` | No | `4000` | API port |
-| `NODE_ENV` | **Yes in prod** | `development` | `production` disables the demo OTP code and CSRF bypass |
+| `NODE_ENV` | **Yes in prod** | `development` | `production` enables stricter production behavior |
 | `MONGODB_URI` | **Yes in prod** | `mongodb://127.0.0.1:27017/ovovita` | Atlas URI in production |
-| `JWT_SECRET` | **Yes in prod** | hardcoded fallback | **Change this** |
+| `JWT_SECRET` | **Yes** | none | Required; minimum 32 characters |
 | `JWT_EXPIRES_IN` | No | `7d` | |
 | `CORS_ALLOWED_ORIGINS` | **Yes in prod** | `localhost:5173,5174` | Comma-separated frontend origins |
-| `BETTER_AUTH_SECRET` | **Yes in prod** | falls back to `JWT_SECRET` | Signs session tokens |
-| `BETTER_AUTH_URL` | No | `http://localhost:4000` | Public API base URL |
+| `FIREBASE_WEB_API_KEY` | **Yes** | none | Firebase web API key used to verify Google ID tokens |
 | `UPI_MERCHANT_VPA` | No | `ovovita.depot@okhdfcbank` | Your UPI handle |
 | `UPI_MERCHANT_NAME` | No | `Ovovita Fresh Farms` | Shown on the pay sheet |
 | `META_WHATSAPP_TOKEN` | For WhatsApp | empty | Meta system-user token |
 | `META_PHONE_NUMBER_ID` | For WhatsApp | empty | |
 | `META_WEBHOOK_VERIFY_TOKEN` | For WhatsApp | dev default | Must be changed in prod |
-| `MSG91_AUTH_KEY` | For real SMS | empty | Production OTP delivery |
-| `MSG91_TEMPLATE_ID` | For real SMS | empty | |
-| `MSG91_SENDER_ID` | For real SMS | `OVOVIT` | |
-| `ALLOW_DEMO_OTP` | No | `false` | **Local only.** `true` also accepts the fixed OTP `123456`. Never set on a public host. |
 | `META_APP_SECRET` | For WhatsApp | empty | Verifies Meta's `X-Hub-Signature-256`. Without it, inbound webhooks are unverified. |
 
 Frontend variables (build-time, `VITE_` prefix):
@@ -165,6 +154,9 @@ Frontend variables (build-time, `VITE_` prefix):
 | Variable | Default | Notes |
 | :--- | :--- | :--- |
 | `VITE_API_URL` | `http://localhost:4000/api/v1` | Set on the host to your deployed API |
+| `VITE_FIREBASE_API_KEY` | empty | Firebase web app API key |
+| `VITE_FIREBASE_PROJECT_ID` | empty | Firebase project ID |
+| `VITE_FIREBASE_APP_ID` | empty | Firebase web app ID |
 
 ---
 
@@ -185,14 +177,11 @@ Short version:
 ### Production checklist
 
 - [ ] `NODE_ENV=production`
-- [ ] `JWT_SECRET` and `BETTER_AUTH_SECRET` set to long random values (the API **refuses to boot** if `JWT_SECRET` is missing or under 32 characters in production)
-- [ ] `ALLOW_DEMO_OTP` **not set** to `true` — the demo code `123456` is off by default
+- [ ] `JWT_SECRET` set to a long random value (the API refuses to boot if it is missing or under 32 characters)
 - [ ] `CORS_ALLOWED_ORIGINS` set to your real frontend origins (not `*`)
 - [ ] `MONGODB_URI` pointing at Atlas
 - [ ] Meta WhatsApp token + phone number ID + `META_APP_SECRET` set (if using WhatsApp)
-- [ ] MSG91 credentials set (if sending real SMS OTPs)
 - [ ] CSRF check is re-enabled automatically in production
-- [ ] Demo OTP `123456` is rejected automatically in production
 
 ---
 
@@ -200,14 +189,14 @@ Short version:
 
 ```bash
 npm run test:core          # Zod schemas, broken-egg deduction math, UPI link format
-npm run test:auth          # Better Auth phone OTP flow (send + verify)
+npm run test:cancel        # Cancellation policy and order-state regression tests
 npm run test:concurrency   # 10 concurrent orders against 60 eggs — zero overselling
 npm run test:webhook       # Meta Cloud API handshake + tracking chatbot
 npm run test:e2e           # Full 7-stage lifecycle
 npm run test:all           # All five in sequence
 ```
 
-`test:e2e`, `test:webhook`, `test:auth` and `test:concurrency` hit a **running** API server
+`test:e2e`, `test:webhook`, `test:cancel` and `test:concurrency` hit a **running** API server
 and a **running** MongoDB. Start `npm run dev:api` first.
 
 ### Verified status at handover
@@ -218,7 +207,6 @@ and a **running** MongoDB. Start `npm run dev:api` first.
 | `test:e2e` | ✅ passed (full 7-stage lifecycle, shift drawer BALANCED) |
 | `test:concurrency` | ⚠️ **not re-run** after the auth fixes — the fixes do not touch `InventoryService`, so the atomic-lock path is unchanged. Run it to confirm. |
 | `test:webhook` | ⚠️ **not re-run** after the auth fixes — unrelated to auth. Run it to confirm. |
-| `test:auth` | ⚠️ **not run** — newly wired into `npm run test:all`. Run it to confirm. |
 
 The three un-run suites were blocked by a tooling outage at the end of the handover
 session, not by a code failure. Run `npm run test:all` once before the client demo to
@@ -247,10 +235,8 @@ These are real and worth being upfront about rather than discovering in a demo.
    driver's pocket.
 4. **Buffer eggs are not tracked.** The driver screen shows a hardcoded "6 Fresh Eggs Ready".
    There is no buffer-issue/return record, so buffer consumption and waste are not measured.
-5. **Two identity systems.** Better Auth owns identity (phone OTP); the app's `User`
-   collection owns the profile (role, addresses, ratings). They are linked by phone number.
-   `User` also carries a duplicated `phoneNumberVerified` flag and a `role` that Better
-   Auth also knows about.
+5. **Separate customer and staff sign-in.** Customers authenticate with Google via
+   Firebase and receive an Ovovita JWT; staff continue to use the PIN login endpoint.
 6. **UPI payments are reconciled manually.** Money goes to your bank account directly, so
    the system records the driver's claim but cannot independently verify it.
 7. **WhatsApp notifications are fire-and-forget.** Without Meta credentials they are

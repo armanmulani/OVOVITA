@@ -25,21 +25,6 @@ export const swaggerSpec = {
       },
     },
     schemas: {
-      CustomerOtpRequest: {
-        type: 'object',
-        required: ['phoneNumber'],
-        properties: {
-          phoneNumber: { type: 'string', example: '9876543210' },
-        },
-      },
-      CustomerOtpVerify: {
-        type: 'object',
-        required: ['phoneNumber', 'otpCode'],
-        properties: {
-          phoneNumber: { type: 'string', example: '9876543210' },
-          otpCode: { type: 'string', example: '123456' },
-        },
-      },
       StaffLogin: {
         type: 'object',
         required: ['phoneNumber', 'pin', 'role'],
@@ -136,26 +121,23 @@ export const swaggerSpec = {
     },
   },
   paths: {
-    '/auth/customer/otp-request': {
+    '/auth/customer/google': {
       post: {
-        summary: 'Request Customer Login OTP',
+        summary: 'Exchange a Firebase Google ID token for an Ovovita session',
         tags: ['Authentication'],
         requestBody: {
           required: true,
-          content: { 'application/json': { schema: { $ref: '#/components/schemas/CustomerOtpRequest' } } },
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['idToken'],
+                properties: { idToken: { type: 'string' } },
+              },
+            },
+          },
         },
-        responses: { 200: { description: 'OTP sent' } },
-      },
-    },
-    '/auth/customer/otp-verify': {
-      post: {
-        summary: 'Verify Customer OTP & Issue JWT',
-        tags: ['Authentication'],
-        requestBody: {
-          required: true,
-          content: { 'application/json': { schema: { $ref: '#/components/schemas/CustomerOtpVerify' } } },
-        },
-        responses: { 200: { description: 'JWT Token and User Profile' } },
+        responses: { 200: { description: 'Ovovita JWT session and customer profile' } },
       },
     },
     '/auth/staff/login': {

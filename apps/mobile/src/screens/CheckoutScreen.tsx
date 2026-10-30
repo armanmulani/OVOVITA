@@ -35,7 +35,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
   const defaultFallback: AddressData = {
     tag: 'HOME',
     recipientName: user?.name || 'Rahul Sharma',
-    phoneNumber: user?.phoneNumber || '9876543210',
+    phoneNumber: /^[6-9]\d{9}$/.test(user?.phoneNumber || '') ? user.phoneNumber : '',
     flatPlotNumber: 'Flat 402',
     apartmentName: 'Silver Oak Heights',
     streetName: '5th Main, 4th Block, Koramangala',
@@ -136,6 +136,12 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
 
   const handleConfirm = async () => {
     if (cart.length === 0) return;
+    if (!/^[6-9]\d{9}$/.test(selectedAddress?.phoneNumber || '')) {
+      setAddressToEdit(selectedAddress);
+      setIsAddressModalOpen(true);
+      return;
+    }
+
     setIsPlacing(true);
 
     try {

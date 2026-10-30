@@ -10,12 +10,23 @@ const router = Router();
 router.get('/', DepotController.getAllDepots);
 router.get('/coverage', DepotController.checkCoverage);
 
-// Depot hub management
+// Depot hub management – static routes first
 router.get(
   '/dashboard',
   authenticateJwt,
   requireRole('SHOPKEEPER', 'SYSTEM_ADMIN'),
   DepotController.getDepotDashboard
+);
+
+// Param routes after static ones
+router.get('/:id', DepotController.getDepot);
+
+// Admin depot management
+router.patch(
+  '/:id',
+  authenticateJwt,
+  requireRole('SYSTEM_ADMIN', 'SHOPKEEPER'),
+  DepotController.updateDepot
 );
 
 router.post(

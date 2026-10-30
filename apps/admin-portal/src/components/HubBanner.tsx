@@ -4,6 +4,7 @@ interface DepotItem {
   _id: string;
   name: string;
   code: string;
+  address?: string;
   servicedPincodes: string[];
 }
 
@@ -13,6 +14,8 @@ interface HubBannerProps {
   depots?: DepotItem[];
   selectedDepotId?: string;
   onSelectDepot?: (id: string) => void;
+  canEditDepot?: boolean;
+  onEditDepot?: () => void;
   onRefresh: () => void;
   isRefreshing?: boolean;
 }
@@ -23,6 +26,8 @@ export const HubBanner: React.FC<HubBannerProps> = ({
   depots = [],
   selectedDepotId,
   onSelectDepot,
+  canEditDepot,
+  onEditDepot,
   onRefresh,
   isRefreshing,
 }) => {
@@ -66,11 +71,20 @@ export const HubBanner: React.FC<HubBannerProps> = ({
               <span>Live Dispatch</span>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-xs text-on-surface-variant mt-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-on-surface-variant mt-1">
             <span className="flex items-center gap-1">
               <span className="material-symbols-outlined text-[14px] text-outline">badge</span>
               {leadName}
             </span>
+            {currentDepot?.address && (
+              <>
+                <span>•</span>
+                <span className="flex items-center gap-1 min-w-0" title={currentDepot.address}>
+                  <span className="material-symbols-outlined text-[14px] text-outline">location_on</span>
+                  <span className="truncate max-w-[24rem]">{currentDepot.address}</span>
+                </span>
+              </>
+            )}
             <span>•</span>
             <span>{pincodesText}</span>
           </div>
@@ -78,7 +92,18 @@ export const HubBanner: React.FC<HubBannerProps> = ({
       </div>
 
       <div className="flex items-center gap-2 self-end sm:self-auto">
+        {canEditDepot && (
+          <button
+            type="button"
+            onClick={onEditDepot}
+            className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-primary text-white font-medium transition hover:bg-primary/90 active:scale-95"
+          >
+            <span className="material-symbols-outlined text-[16px]">edit</span>
+            <span>Edit Depot</span>
+          </button>
+        )}
         <button
+          type="button"
           onClick={onRefresh}
           disabled={isRefreshing}
           className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface-variant font-medium transition active:scale-95"

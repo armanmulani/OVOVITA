@@ -74,7 +74,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   };
 
   const userName = user?.name || 'Customer';
-  const userPhone = user?.phoneNumber ? `+91 ${user.phoneNumber}` : '';
+  const userPhone = /^[6-9]\d{9}$/.test(user?.phoneNumber || '') ? `+91 ${user.phoneNumber}` : '';
   const userEmail = user?.email || (user?.phoneNumber ? `${user.phoneNumber}@ovovita.in` : 'customer@ovovita.in');
   const initials = (userName || 'C')
     .split(' ')

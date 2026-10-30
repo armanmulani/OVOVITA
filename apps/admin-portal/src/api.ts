@@ -58,6 +58,8 @@ export const api = {
 
   // Depot
   getDepots: () => api.request('/depots'),
+  getDepot: (id: string) => api.request(`/depots/${id}`),
+  updateDepot: (id: string, data: any) => api.request(`/depots/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   getDepotDashboard: (depotId?: string) =>
     api.request(`/depots/dashboard${depotId ? `?depotId=${depotId}` : ''}`),
   assignRider: (orderId: string, driverId: string, vehiclePlateNumber?: string) =>

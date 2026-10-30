@@ -17,6 +17,7 @@
  * Expected values are literal, never recomputed the way the code does.
  */
 import mongoose from 'mongoose';
+import jwt from 'jsonwebtoken';
 import { config } from '../config';
 import { Order } from '../models/Order';
 import { Product } from '../models/Product';
@@ -58,6 +59,19 @@ const loginAs = async (phone: string, pin: string, role: string): Promise<string
   const res = await post('/auth/staff/login', { phoneNumber: phone, pin, role });
   return res.body?.data?.token;
 };
+
+const tokenFor = (user: any): string =>
+  jwt.sign(
+    {
+      id: user._id,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+      name: user.name,
+      depotId: user.depotId,
+    },
+    config.jwtSecret,
+    { expiresIn: '30d' }
+  );
 
 /**
  * Creates a product with a known stock level and returns it.
@@ -396,22 +410,8 @@ const run = async () => {
     );
     const stockBeforeIntruder = await stockOf(product._id);
 
-    // The other customer signs in via OTP to get a real customer token.
-    await post('/auth/customer/otp-request', { phoneNumber: otherCustomer.phoneNumber });
-    const db = mongoose.connection.db!;
-    const otpRow = await db
-      .collection('betterauthverifications')
-      .find({ identifier: `+91${otherCustomer.phoneNumber}` })
-      .sort({ createdAt: -1 })
-      .limit(1)
-      .next();
-    const otpCode = otpRow ? String(otpRow.value).split(':')[0] : '123456';
-    const intruderLogin = await post('/auth/customer/otp-verify', {
-      phoneNumber: otherCustomer.phoneNumber,
-      otpCode,
-    });
-    const intruderToken = intruderLogin.body?.data?.token;
-    assert(!!intruderToken, 'the other customer can sign in');
+    const intruderToken = tokenFor(otherCustomer);
+    assert(!!intruderToken, 'the other customer has an authenticated session');
 
     const intruderCancel = await post(
       `/orders/${victimOrder._id}/cancel`,
@@ -434,21 +434,8 @@ const run = async () => {
     );
 
     // The order's OWN customer may cancel it.
-    // Request a fresh OTP first to ensure we have a valid code
-    await post('/auth/customer/otp-request', { phoneNumber: '9876543210' });
-    const ownerOtpRow = await db
-      .collection('betterauthverifications')
-      .find({ identifier: `+919876543210` })
-      .sort({ createdAt: -1 })
-      .limit(1)
-      .next();
-    const ownerOtp = ownerOtpRow ? String(ownerOtpRow.value).split(':')[0] : '123456';
-    const ownerLogin = await post('/auth/customer/otp-verify', {
-      phoneNumber: '9876543210',
-      otpCode: ownerOtp,
-    });
-    const ownerToken = ownerLogin.body?.data?.token;
-    assert(!!ownerToken, 'the order owner can log in to get token');
+    const ownerToken = tokenFor(customer);
+    assert(!!ownerToken, 'the order owner has an authenticated session');
     const selfCancel = await post(
       `/orders/${victimOrder._id}/cancel`,
       { reason: 'mine, I cancel' },

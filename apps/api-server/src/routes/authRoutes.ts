@@ -1,66 +1,12 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/authController';
 import { validateBody } from '../middleware/validateMiddleware';
-import {
-  CustomerOtpRequestSchema,
-  CustomerOtpVerifySchema,
-  StaffLoginSchema,
-} from '@ovovita/validation';
+import { StaffLoginSchema } from '@ovovita/validation';
 import { authenticateJwt } from '../middleware/authMiddleware';
-import {
-  otpRateLimiter,
-  loginRateLimiter,
-  otpVerifySubjectLimiter,
-  staffLoginSubjectLimiter,
-} from '../middleware/rateLimitMiddleware';
+import { loginRateLimiter, staffLoginSubjectLimiter } from '../middleware/rateLimitMiddleware';
 import { z } from 'zod';
 
 const router = Router();
-
-// Phone OTP (Better Auth) - existing
-router.post(
-  '/customer/otp-request',
-  otpRateLimiter,
-  validateBody(CustomerOtpRequestSchema),
-  AuthController.requestCustomerOtp
-);
-
-router.post(
-  '/customer/otp-verify',
-  otpRateLimiter,
-  otpVerifySubjectLimiter,
-  validateBody(CustomerOtpVerifySchema),
-  AuthController.verifyCustomerOtp
-);
-
-// Email OTP (Free Gmail SMTP) - new
-const EmailOtpRequestSchema = z.object({
-  body: z.object({
-    email: z.string().email('Invalid email address'),
-  }),
-});
-
-const EmailOtpVerifySchema = z.object({
-  body: z.object({
-    email: z.string().email('Invalid email address'),
-    otpCode: z.string().length(6, 'OTP must be 6 digits'),
-  }),
-});
-
-router.post(
-  '/customer/email-otp-request',
-  otpRateLimiter,
-  validateBody(EmailOtpRequestSchema),
-  AuthController.requestCustomerEmailOtp
-);
-
-router.post(
-  '/customer/email-otp-verify',
-  otpRateLimiter,
-  otpVerifySubjectLimiter,
-  validateBody(EmailOtpVerifySchema),
-  AuthController.verifyCustomerEmailOtp
-);
 
 const GoogleLoginSchema = z.object({
   idToken: z.string().min(1),

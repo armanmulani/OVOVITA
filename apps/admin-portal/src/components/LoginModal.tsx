@@ -58,7 +58,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLoginSuccess }) => {
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
           {/* Role selector tabs */}
-          <div className="grid grid-cols-2 gap-1.5 p-1 bg-surface-container rounded-xl">
+          <div className="grid grid-cols-3 gap-1.5 p-1 bg-surface-container rounded-xl">
             <button
               type="button"
               onClick={() => {
@@ -86,6 +86,20 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onLoginSuccess }) => {
               }`}
             >
               Delivery Partner
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRole('SYSTEM_ADMIN');
+                setPhoneNumber('9876500000');
+              }}
+              className={`py-1.5 text-xs font-bold rounded-lg transition ${
+                role === 'SYSTEM_ADMIN'
+                  ? 'bg-surface text-primary shadow-sm'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              System Admin
             </button>
           </div>
 

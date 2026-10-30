@@ -35,32 +35,6 @@ export const mobileApi = {
     return data;
   },
 
-  // Auth - Phone OTP (Better Auth)
-  requestOtp: (phoneNumber: string) =>
-    mobileApi.request('/auth/customer/otp-request', {
-      method: 'POST',
-      body: JSON.stringify({ phoneNumber }),
-    }),
-
-  verifyOtp: (phoneNumber: string, otpCode: string) =>
-    mobileApi.request('/auth/customer/otp-verify', {
-      method: 'POST',
-      body: JSON.stringify({ phoneNumber, otpCode }),
-    }),
-
-  // Auth - Email OTP (Free Gmail SMTP)
-  requestEmailOtp: (email: string) =>
-    mobileApi.request('/auth/customer/email-otp-request', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    }),
-
-  verifyEmailOtp: (email: string, otpCode: string) =>
-    mobileApi.request('/auth/customer/email-otp-verify', {
-      method: 'POST',
-      body: JSON.stringify({ email, otpCode }),
-    }),
-
   googleLogin: (idToken: string) =>
     mobileApi.request('/auth/customer/google', {
       method: 'POST',
